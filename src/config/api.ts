@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://investx-api.onrender.com';
+const API_URL = import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com';
 
 export const API_ENDPOINTS = {
   stocks: {
