@@ -1,0 +1,42 @@
+{
+  "name": "F-Insight - Plataforma de Análise Financeira",
+  "short_name": "F-Insight",
+  "description": "Plataforma completa de análise financeira com radar de ativos, gráficos em tempo real, Graham picks e muito mais.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Radar de Ativos",
+      "short_name": "Radar",
+      "description": "Buscar e filtrar ativos",
+      "url": "/radar",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Minha Watchlist",
+      "short_name": "Watchlist",
+      "description": "Acompanhar ativos favoritos",
+      "url": "/watchlist",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
