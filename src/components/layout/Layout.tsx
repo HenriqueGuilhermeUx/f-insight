@@ -14,7 +14,7 @@ import {
   Activity,
   Star,
   Users,
-  BriefcaseBusiness,
+  Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -29,7 +29,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home },
-  { label: 'Assessor', href: '/assessor', icon: BriefcaseBusiness },
+  { label: 'Assessor', href: '/assessor', icon: Briefcase },
   { label: 'Cliente', href: '/cliente', icon: Users },
   { label: 'Macro', href: '/macro', icon: Activity },
   { label: 'Radar', href: '/radar', icon: Search },
@@ -118,7 +118,7 @@ export function Layout({ children }: LayoutProps) {
                 to="/assessor"
                 className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
               >
-                <BriefcaseBusiness className="w-4 h-4" />
+                <Briefcase className="w-4 h-4" />
                 Assessor
               </Link>
               <Link
