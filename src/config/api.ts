@@ -1,6 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com';
 
 export const API_ENDPOINTS = {
+  baseUrl: API_URL,
   stocks: {
     brazil: `${API_URL}/api/stocks/brazil`,
     us: `${API_URL}/api/stocks/us`,
@@ -17,6 +18,21 @@ export const API_ENDPOINTS = {
     list: `${API_URL}/api/news`,
     stock: (symbol: string) => `${API_URL}/api/news/stock/${symbol}`,
     sentiment: (symbol: string) => `${API_URL}/api/news/sentiment/${symbol}`
+  },
+  macro: {
+    overview: `${API_URL}/api/macro/overview`,
+    refresh: `${API_URL}/api/macro/refresh`
+  },
+  signals: {
+    active: `${API_URL}/api/signals/active`,
+    byTicker: (symbol: string) => `${API_URL}/api/signals/by-ticker/${symbol}`
+  },
+  tenants: {
+    current: `${API_URL}/api/tenants/current`,
+    byId: (tenantId: string) => `${API_URL}/api/tenants/${tenantId}`
+  },
+  reports: {
+    valuation: (symbol: string) => `${API_URL}/api/reports/valuation/${symbol}.pdf`
   },
   indicators: (symbol: string) => `${API_URL}/api/indicators/${symbol}`,
   watchlist: (userId: string) => `${API_URL}/api/watchlist/${userId}`,
