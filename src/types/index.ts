@@ -108,6 +108,49 @@ export interface MarketOverview {
   };
 }
 
+export interface TenantBranding {
+  tenantId: string;
+  tenantName: string;
+  brandName: string;
+  logoDataUrl?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  reportFooter: string;
+  disclosure: string;
+  subdomain?: string;
+  updatedAt?: string;
+}
+
+export interface MacroIndicator {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  date: string;
+  trend: 'up' | 'down' | 'neutral';
+  interpretation: string;
+}
+
+export interface AllocationSignal {
+  id: string;
+  title: string;
+  type: string;
+  impact: 'baixo' | 'moderado' | 'alto' | string;
+  status: 'ativo' | 'monitorando' | string;
+  tickers: string[];
+  summary: string;
+  rationale: string;
+  suggestedAction: string;
+  generatedAt: string;
+}
+
+export interface MacroOverview {
+  updatedAt: string;
+  source: string;
+  indicators: MacroIndicator[];
+  signals: AllocationSignal[];
+}
+
 export interface ScreenerFilter {
   sector?: string;
   country?: 'br' | 'us' | 'crypto';
@@ -128,7 +171,9 @@ export type PageType =
   | 'news'
   | 'analysis'
   | 'portfolio'
-  | 'alerts';
+  | 'alerts'
+  | 'macro'
+  | 'white-label';
 
 export interface AppState {
   theme: 'dark' | 'light';
