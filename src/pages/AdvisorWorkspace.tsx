@@ -1,13 +1,13 @@
 import {
   ArrowUpRight,
   BarChart3,
-  BriefcaseBusiness,
+  Briefcase,
   CheckCircle2,
   Clock,
   Download,
   FileText,
   Mail,
-  MessageSquareText,
+  MessageSquare,
   Plus,
   Send,
   Sparkles,
@@ -52,7 +52,7 @@ export default function AdvisorWorkspace() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-4">
-              <BriefcaseBusiness className="w-3.5 h-3.5" />
+              <Briefcase className="w-3.5 h-3.5" />
               Workspace do assessor
             </div>
             <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">
@@ -156,7 +156,7 @@ export default function AdvisorWorkspace() {
           <p className="text-sm text-slate-400 leading-relaxed">Gera escala, padroniza discurso e aumenta percepção de profissionalismo.</p>
         </div>
         <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
-          <MessageSquareText className="w-6 h-6 text-emerald-400 mb-3" />
+          <MessageSquare className="w-6 h-6 text-emerald-400 mb-3" />
           <h3 className="font-bold text-white mb-2">Relevante para o assessor</h3>
           <p className="text-sm text-slate-400 leading-relaxed">Entrega pauta pronta para reuniões, follow-up e educação financeira do cliente.</p>
         </div>
