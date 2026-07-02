@@ -13,6 +13,8 @@ import {
   X,
   Activity,
   Star,
+  Users,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -27,9 +29,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home },
+  { label: 'Assessor', href: '/assessor', icon: BriefcaseBusiness },
+  { label: 'Cliente', href: '/cliente', icon: Users },
+  { label: 'Macro', href: '/macro', icon: Activity },
   { label: 'Radar', href: '/radar', icon: Search },
   { label: 'Análises', href: '/analises', icon: BarChart3 },
-  { label: 'Macro', href: '/macro', icon: Activity },
   { label: 'Notícias', href: '/noticias', icon: Newspaper },
   { label: 'Watchlist', href: '/watchlist', icon: Bookmark },
   { label: 'Alertas', href: '/alertas', icon: Bell },
@@ -81,7 +85,7 @@ export function Layout({ children }: LayoutProps) {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden xl:flex items-center gap-1">
+            <nav className="hidden 2xl:flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
@@ -111,6 +115,20 @@ export function Layout({ children }: LayoutProps) {
             {/* Right side actions */}
             <div className="flex items-center gap-3">
               <Link
+                to="/assessor"
+                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
+              >
+                <BriefcaseBusiness className="w-4 h-4" />
+                Assessor
+              </Link>
+              <Link
+                to="/cliente"
+                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
+              >
+                <Users className="w-4 h-4" />
+                Cliente
+              </Link>
+              <Link
                 to="/white-label"
                 className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
               >
@@ -134,7 +152,7 @@ export function Layout({ children }: LayoutProps) {
               {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                className="2xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
               >
                 {isMobileMenuOpen ? (
                   <X className="w-5 h-5" />
@@ -149,7 +167,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Mobile Navigation */}
       {isMobileMenuOpen && (
-        <div className="xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
+        <div className="2xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20">
             {navItems.map((item) => {
               const Icon = item.icon;
