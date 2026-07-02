@@ -10,6 +10,8 @@ import Analyses from './pages/Analyses';
 import Alerts from './pages/Alerts';
 import MacroSignals from './pages/MacroSignals';
 import WhiteLabelSettings from './pages/WhiteLabelSettings';
+import ClientPortal from './pages/ClientPortal';
+import AdvisorWorkspace from './pages/AdvisorWorkspace';
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
           <Route path="/alertas" element={<Alerts />} />
           <Route path="/macro" element={<MacroSignals />} />
           <Route path="/white-label" element={<WhiteLabelSettings />} />
+          <Route path="/assessor" element={<AdvisorWorkspace />} />
+          <Route path="/cliente" element={<ClientPortal />} />
           <Route path="*" element={<Home />} />
         </Routes>
         <Toaster position="top-right" richColors />
