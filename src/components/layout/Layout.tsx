@@ -11,12 +11,12 @@ import {
   Settings,
   Menu,
   X,
-  ChevronRight,
-  Eye,
+  Activity,
   Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
+import { useTenant } from '@/context/TenantContext';
 
 interface NavItem {
   label: string;
@@ -29,9 +29,11 @@ const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home },
   { label: 'Radar', href: '/radar', icon: Search },
   { label: 'Análises', href: '/analises', icon: BarChart3 },
+  { label: 'Macro', href: '/macro', icon: Activity },
   { label: 'Notícias', href: '/noticias', icon: Newspaper },
   { label: 'Watchlist', href: '/watchlist', icon: Bookmark },
   { label: 'Alertas', href: '/alertas', icon: Bell },
+  { label: 'Marca', href: '/white-label', icon: Settings },
 ];
 
 interface LayoutProps {
@@ -41,7 +43,8 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { theme, sidebarOpen, setSidebarOpen, watchlist } = useAppStore();
+  const { theme, watchlist } = useAppStore();
+  const { tenant } = useTenant();
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -58,23 +61,27 @@ export function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-                <TrendingUp className="w-5 h-5 text-white" />
+            <Link to="/" className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden shrink-0">
+                {tenant.logoDataUrl ? (
+                  <img src={tenant.logoDataUrl} alt={tenant.brandName} className="w-full h-full object-contain p-1" />
+                ) : (
+                  <TrendingUp className="w-5 h-5 text-white" />
+                )}
               </div>
-              <div className="hidden sm:block">
+              <div className="hidden sm:block min-w-0">
                 <h1 className={cn(
-                  "text-xl font-bold gradient-text",
-                  theme === 'light' && "text-slate-900"
+                  'text-xl font-bold gradient-text truncate max-w-[220px]',
+                  theme === 'light' && 'text-slate-900'
                 )}>
-                  F-Insight
+                  {tenant.brandName || 'F-Insight'}
                 </h1>
-                <p className="text-xs text-slate-400 -mt-0.5">Análise Inteligente</p>
+                <p className="text-xs text-slate-400 -mt-0.5">Powered by F-Insight</p>
               </div>
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden xl:flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
@@ -83,7 +90,7 @@ export function Layout({ children }: LayoutProps) {
                     key={item.href}
                     to={item.href}
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                       isActive
                         ? 'bg-primary/10 text-primary border border-primary/30'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -103,6 +110,14 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Right side actions */}
             <div className="flex items-center gap-3">
+              <Link
+                to="/white-label"
+                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                White Label
+              </Link>
+
               {/* Watchlist indicator */}
               <Link
                 to="/watchlist"
@@ -119,7 +134,7 @@ export function Layout({ children }: LayoutProps) {
               {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                className="xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
               >
                 {isMobileMenuOpen ? (
                   <X className="w-5 h-5" />
@@ -134,7 +149,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Mobile Navigation */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
+        <div className="xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -169,11 +184,15 @@ export function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center overflow-hidden">
+                {tenant.logoDataUrl ? (
+                  <img src={tenant.logoDataUrl} alt={tenant.brandName} className="w-full h-full object-contain p-1" />
+                ) : (
+                  <TrendingUp className="w-4 h-4 text-white" />
+                )}
               </div>
               <span className="text-slate-400 text-sm">
-                © 2024 F-Insight. Todos os direitos reservados.
+                © 2026 {tenant.brandName}. Powered by F-Insight White Label.
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-slate-500">
