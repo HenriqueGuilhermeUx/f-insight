@@ -20,7 +20,7 @@ export default function AdminDashboard() {
     { label: 'Assessores', value: stats.advisors.length, icon: Briefcase, href: '/admin/assessores' },
     { label: 'Clientes finais', value: stats.clients.length, icon: Users, href: '/admin/clientes' },
     { label: 'Relatórios publicados', value: stats.publishedReports, icon: FileText, href: '/admin/relatorios' },
-    { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/cliente' },
+    { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/admin/conteudos' },
   ];
 
   return (
@@ -82,6 +82,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Publicar relatório para cliente</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/admin/conteudos" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Criar conteúdo educativo</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
           </div>
         </div>
 
@@ -96,6 +100,7 @@ export default function AdminDashboard() {
               'Área do assessor com clientes e ações',
               'Portal do cliente final educacional e seguro',
               'Relatórios PDF white-label por ativo',
+              'Biblioteca de conteúdos educativos para trilhas',
               'Macroeconomia e sinais orientativos',
             ].map((item) => (
               <div key={item} className="rounded-xl bg-slate-950/40 border border-slate-700/40 p-3 text-sm text-slate-300">
