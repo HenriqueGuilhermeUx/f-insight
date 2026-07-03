@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import type { WorkspaceAdvisor, WorkspaceClient, WorkspaceReport, WorkspaceTenant } from '@/services/workspace';
+import type { WorkspaceAdvisor, WorkspaceClient, WorkspaceContent, WorkspaceReport, WorkspaceTenant } from '@/services/workspace';
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -13,7 +13,7 @@ function dbTenantId(id: string) {
 
 function dbOptionalId(id?: string) {
   if (!id) return null;
-  if (id.startsWith('advisor_') || id.startsWith('client_') || id.startsWith('report_')) return null;
+  if (id.startsWith('advisor_') || id.startsWith('client_') || id.startsWith('report_') || id.startsWith('content_')) return null;
   return id;
 }
 
@@ -130,6 +130,37 @@ export async function syncReportToSupabase(report: WorkspaceReport) {
       client_id: clientId,
       assigned_by: dbOptionalId(report.advisorId),
       status: 'published',
+    });
+  }
+}
+
+export async function syncContentToSupabase(content: WorkspaceContent) {
+  if (!enabled()) return;
+
+  const created = await supabase!
+    .from('education_contents')
+    .insert({
+      tenant_id: dbTenantId(content.tenantId),
+      title: content.title,
+      category: content.category,
+      description: content.description,
+      body: content.description,
+    })
+    .select('id')
+    .single();
+
+  if (created.error || !created.data?.id) {
+    console.warn('Supabase content sync failed:', created.error?.message);
+    return;
+  }
+
+  const clientId = dbOptionalId(content.clientId);
+  if (clientId) {
+    await supabase!.from('content_assignments').insert({
+      tenant_id: dbTenantId(content.tenantId),
+      content_id: created.data.id,
+      client_id: clientId,
+      assigned_by: null,
     });
   }
 }
