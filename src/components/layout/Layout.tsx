@@ -50,22 +50,21 @@ export function Layout({ children }: LayoutProps) {
   const { theme, watchlist } = useAppStore();
   const { tenant } = useTenant();
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
   return (
-    <div className={cn(
-      'min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950',
-      theme === 'light' && 'bg-gradient-to-br from-slate-50 via-white to-slate-100'
-    )}>
-      {/* Header */}
+    <div
+      className={cn(
+        'min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950',
+        theme === 'light' && 'bg-gradient-to-br from-slate-50 via-white to-slate-100'
+      )}
+    >
       <header className="sticky top-0 z-50 glass border-b border-slate-700/40">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between gap-4 h-16">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 min-w-0 shrink-0">
+            <Link to="/" className="flex items-center gap-3 min-w-0 shrink-0 max-w-[55%] lg:max-w-none">
               <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden shrink-0">
                 {tenant.logoDataUrl ? (
                   <img src={tenant.logoDataUrl} alt={tenant.brandName} className="w-full h-full object-contain p-1" />
@@ -73,20 +72,18 @@ export function Layout({ children }: LayoutProps) {
                   <TrendingUp className="w-5 h-5 text-white" />
                 )}
               </div>
-              <div className="hidden sm:flex flex-col justify-center min-w-0 max-w-[140px] md:max-w-[170px] xl:max-w-[220px]">
-                <h1 className={cn(
-                  'text-lg md:text-xl font-bold gradient-text leading-tight truncate whitespace-nowrap',
-                  theme === 'light' && 'text-slate-900'
-                )}>
+              <div className="hidden sm:flex items-center min-w-0">
+                <h1
+                  className={cn(
+                    'text-lg md:text-xl font-bold gradient-text leading-tight truncate max-w-[140px] md:max-w-[180px] xl:max-w-[240px]',
+                    theme === 'light' && 'text-slate-900'
+                  )}
+                >
                   {tenant.brandName || 'F-Insight'}
                 </h1>
-                <p className="hidden xl:block text-[11px] text-slate-400 leading-none mt-0.5 truncate">
-                  White Label by F-Insight
-                </p>
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
             <nav className="hidden 2xl:flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -114,7 +111,6 @@ export function Layout({ children }: LayoutProps) {
               })}
             </nav>
 
-            {/* Right side actions */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <Link
                 to="/assessor"
@@ -138,11 +134,7 @@ export function Layout({ children }: LayoutProps) {
                 White Label
               </Link>
 
-              {/* Watchlist indicator */}
-              <Link
-                to="/watchlist"
-                className="relative p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
-              >
+              <Link to="/watchlist" className="relative p-2 rounded-lg hover:bg-slate-800/50 transition-colors">
                 <Star className="w-5 h-5 text-amber-400" />
                 {watchlist.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black text-xs font-bold rounded-full flex items-center justify-center">
@@ -151,23 +143,17 @@ export function Layout({ children }: LayoutProps) {
                 )}
               </Link>
 
-              {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="2xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
               >
-                {isMobileMenuOpen ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5" />
-                )}
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile Navigation */}
       {isMobileMenuOpen && (
         <div className="2xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20">
@@ -180,9 +166,7 @@ export function Layout({ children }: LayoutProps) {
                   to={item.href}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium transition-all',
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                    isActive ? 'bg-primary/10 text-primary' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
                   )}
                 >
                   <Icon className="w-6 h-6" />
@@ -194,12 +178,8 @@ export function Layout({ children }: LayoutProps) {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        {children}
-      </main>
+      <main className="container mx-auto px-4 py-6">{children}</main>
 
-      {/* Footer */}
       <footer className="border-t border-slate-800/50 mt-12 py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
