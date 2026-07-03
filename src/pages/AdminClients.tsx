@@ -41,7 +41,7 @@ export default function AdminClients() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const workspace = getWorkspace();
-    const advisorId = workspace.activeAdvisorId || advisors[0]?.id;
+    const advisorId = workspace.activeAdvisorId || advisors[0]?.id || 'advisor_demo';
     const client = addClient({
       tenantId: workspace.activeTenantId,
       advisorId,
