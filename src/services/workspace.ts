@@ -1,6 +1,7 @@
 import {
   syncAdvisorToSupabase,
   syncClientToSupabase,
+  syncContentToSupabase,
   syncReportToSupabase,
   syncTenantToSupabase,
 } from '@/services/supabaseWorkspace';
@@ -293,6 +294,19 @@ export function publishReport(input: Omit<WorkspaceReport, 'id' | 'createdAt'>) 
   saveWorkspace(workspace);
   void syncReportToSupabase(report);
   return report;
+}
+
+export function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt'>) {
+  const workspace = getWorkspace();
+  const content: WorkspaceContent = {
+    ...input,
+    id: makeId('content'),
+    createdAt: now(),
+  };
+  workspace.contents.unshift(content);
+  saveWorkspace(workspace);
+  void syncContentToSupabase(content);
+  return content;
 }
 
 export function getWorkspaceStats() {
