@@ -1,3 +1,10 @@
+import {
+  syncAdvisorToSupabase,
+  syncClientToSupabase,
+  syncReportToSupabase,
+  syncTenantToSupabase,
+} from '@/services/supabaseWorkspace';
+
 export type UserRole = 'admin' | 'advisor' | 'client';
 export type ClientProfile = 'conservador' | 'moderado' | 'arrojado';
 export type EducationLevel = 'iniciante' | 'intermediario' | 'avancado';
@@ -241,6 +248,7 @@ export function registerTenant(input: Partial<WorkspaceTenant>) {
   workspace.activeTenantId = tenant.id;
   workspace.activeAdvisorId = advisor.id;
   saveWorkspace(workspace);
+  void syncTenantToSupabase(tenant, advisor);
   return { workspace, tenant, advisor };
 }
 
@@ -254,6 +262,7 @@ export function addAdvisor(input: Omit<WorkspaceAdvisor, 'id' | 'createdAt' | 's
   };
   workspace.advisors.push(advisor);
   saveWorkspace(workspace);
+  void syncAdvisorToSupabase(advisor);
   return advisor;
 }
 
@@ -269,6 +278,7 @@ export function addClient(input: Omit<WorkspaceClient, 'id' | 'createdAt' | 'sta
   workspace.clients.push(client);
   workspace.activeClientId = client.id;
   saveWorkspace(workspace);
+  void syncClientToSupabase(client);
   return client;
 }
 
@@ -281,6 +291,7 @@ export function publishReport(input: Omit<WorkspaceReport, 'id' | 'createdAt'>) 
   };
   workspace.reports.unshift(report);
   saveWorkspace(workspace);
+  void syncReportToSupabase(report);
   return report;
 }
 
