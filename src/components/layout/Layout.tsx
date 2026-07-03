@@ -16,10 +16,13 @@ import {
   Users,
   Briefcase,
   Building2,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
 import { useTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface NavItem {
   label: string;
@@ -51,6 +54,7 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { theme, watchlist } = useAppStore();
   const { tenant } = useTenant();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -143,6 +147,25 @@ export function Layout({ children }: LayoutProps) {
                 White Label
               </Link>
 
+              {user ? (
+                <button
+                  onClick={() => void logout()}
+                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm hover:bg-emerald-500/15 transition-colors"
+                  title={user.email}
+                >
+                  <LogOut className="w-4 h-4" />
+                  {user.isDemo ? 'Demo' : user.role}
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm hover:bg-emerald-500/15 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </Link>
+              )}
+
               <Link to="/watchlist" className="relative p-2 rounded-lg hover:bg-slate-800/50 transition-colors">
                 <Star className="w-5 h-5 text-amber-400" />
                 {watchlist.length > 0 && (
@@ -166,6 +189,13 @@ export function Layout({ children }: LayoutProps) {
       {isMobileMenuOpen && (
         <div className="2xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20 overflow-y-auto max-h-screen">
+            <Link
+              to="/login"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium text-emerald-400 bg-emerald-500/10 mb-2"
+            >
+              <LogIn className="w-6 h-6" />
+              {user ? `Sessão: ${user.role}` : 'Login'}
+            </Link>
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
