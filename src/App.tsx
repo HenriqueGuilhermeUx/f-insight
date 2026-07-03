@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { TenantProvider } from './context/TenantContext';
 import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Home from './pages/Home';
 import Radar from './pages/Radar';
 import AssetDetails from './pages/AssetDetails';
@@ -36,15 +37,64 @@ function App() {
             <Route path="/analises" element={<Analyses />} />
             <Route path="/alertas" element={<Alerts />} />
             <Route path="/macro" element={<MacroSignals />} />
-            <Route path="/white-label" element={<WhiteLabelSettings />} />
-            <Route path="/assessor" element={<AdvisorWorkspace />} />
-            <Route path="/cliente" element={<ClientPortal />} />
             <Route path="/cadastro-escritorio" element={<RegisterOffice />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/assessores" element={<AdminAdvisors />} />
-            <Route path="/admin/clientes" element={<AdminClients />} />
-            <Route path="/admin/relatorios" element={<AdminReports />} />
             <Route path="/convite/:token" element={<InvitePage />} />
+            <Route
+              path="/white-label"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <WhiteLabelSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/assessor"
+              element={
+                <ProtectedRoute roles={['admin', 'advisor']}>
+                  <AdvisorWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cliente"
+              element={
+                <ProtectedRoute roles={['admin', 'advisor', 'client']}>
+                  <ClientPortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/assessores"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <AdminAdvisors />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/clientes"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <AdminClients />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/relatorios"
+              element={
+                <ProtectedRoute roles={['admin', 'advisor']}>
+                  <AdminReports />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Home />} />
           </Routes>
           <Toaster position="top-right" richColors />
