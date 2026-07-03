@@ -5,22 +5,33 @@ import { addClient, getInviteUrl, getWorkspace, getWorkspaceStats, WorkspaceClie
 
 const interestOptions = ['Juros', 'Renda fixa', 'Dividendos', 'Dólar', 'Valuation', 'Risco', 'Exterior'];
 
+type ClientFormState = {
+  name: string;
+  email: string;
+  phone: string;
+  profile: WorkspaceClient['profile'];
+  educationLevel: WorkspaceClient['educationLevel'];
+  interests: string[];
+};
+
 export default function AdminClients() {
   const initialStats = getWorkspaceStats();
   const [clients, setClients] = useState(initialStats.clients);
   const [copiedToken, setCopiedToken] = useState('');
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ClientFormState>({
     name: '',
     email: '',
     phone: '',
-    profile: 'moderado' as WorkspaceClient['profile'],
-    educationLevel: 'intermediario' as WorkspaceClient['educationLevel'],
+    profile: 'moderado',
+    educationLevel: 'intermediario',
     interests: ['Juros', 'Valuation'],
   });
 
   const advisors = useMemo(() => getWorkspaceStats().advisors, []);
 
-  const update = (key: keyof typeof form, value: string | string[]) => setForm((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof ClientFormState>(key: K, value: ClientFormState[K]) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
 
   const toggleInterest = (item: string) => {
     const exists = form.interests.includes(item);
@@ -85,7 +96,7 @@ export default function AdminClients() {
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Perfil</span>
-                <select value={form.profile} onChange={(e) => update('profile', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
+                <select value={form.profile} onChange={(e) => update('profile', e.target.value as WorkspaceClient['profile'])} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
                   <option value="conservador">Conservador</option>
                   <option value="moderado">Moderado</option>
                   <option value="arrojado">Arrojado</option>
@@ -93,7 +104,7 @@ export default function AdminClients() {
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Educação</span>
-                <select value={form.educationLevel} onChange={(e) => update('educationLevel', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
+                <select value={form.educationLevel} onChange={(e) => update('educationLevel', e.target.value as WorkspaceClient['educationLevel'])} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
                   <option value="iniciante">Iniciante</option>
                   <option value="intermediario">Intermediário</option>
                   <option value="avancado">Avançado</option>
