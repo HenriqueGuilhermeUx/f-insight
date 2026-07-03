@@ -5,20 +5,30 @@ import { Layout } from '@/components/layout/Layout';
 import { getWorkspace, getWorkspaceStats, publishReport, WorkspaceReport } from '@/services/workspace';
 import { useTenant } from '@/context/TenantContext';
 
+type ReportFormState = {
+  ticker: string;
+  title: string;
+  summary: string;
+  type: WorkspaceReport['type'];
+  clientId: string;
+};
+
 export default function AdminReports() {
   const { buildReportParams } = useTenant();
   const initialStats = getWorkspaceStats();
   const [reports, setReports] = useState(initialStats.reports);
   const clients = useMemo(() => initialStats.clients, []);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ReportFormState>({
     ticker: 'PETR4',
     title: 'Como ler um relatório de valuation',
     summary: 'Material orientativo para explicar preço, valor intrínseco e margem de segurança.',
-    type: 'valuation' as WorkspaceReport['type'],
+    type: 'valuation',
     clientId: clients[0]?.id || '',
   });
 
-  const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof ReportFormState>(key: K, value: ReportFormState[K]) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
 
   const openPdf = (ticker: string) => {
     const params = buildReportParams();
@@ -75,7 +85,7 @@ export default function AdminReports() {
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Tipo</span>
-              <select value={form.type} onChange={(e) => update('type', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
+              <select value={form.type} onChange={(e) => update('type', e.target.value as WorkspaceReport['type'])} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50">
                 <option value="valuation">Valuation</option>
                 <option value="macro">Macro</option>
                 <option value="educacional">Educacional</option>
