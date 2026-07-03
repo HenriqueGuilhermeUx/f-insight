@@ -15,6 +15,7 @@ import {
   Star,
   Users,
   Briefcase,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -29,6 +30,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home },
+  { label: 'Admin', href: '/admin', icon: Building2 },
   { label: 'Assessor', href: '/assessor', icon: Briefcase },
   { label: 'Cliente', href: '/cliente', icon: Users },
   { label: 'Macro', href: '/macro', icon: Activity },
@@ -113,6 +115,13 @@ export function Layout({ children }: LayoutProps) {
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <Link
+                to="/admin"
+                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
+              >
+                <Building2 className="w-4 h-4" />
+                Admin
+              </Link>
+              <Link
                 to="/assessor"
                 className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
               >
@@ -156,7 +165,7 @@ export function Layout({ children }: LayoutProps) {
 
       {isMobileMenuOpen && (
         <div className="2xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
-          <div className="flex flex-col p-4 pt-20">
+          <div className="flex flex-col p-4 pt-20 overflow-y-auto max-h-screen">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
