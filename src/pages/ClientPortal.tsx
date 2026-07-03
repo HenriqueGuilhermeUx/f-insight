@@ -7,18 +7,17 @@ import {
   Download,
   FileText,
   HelpCircle,
-  Lightbulb,
   Lock,
   MessageCircle,
-  Newspaper,
   Shield,
   Sparkles,
   Target,
-  TrendingUp,
 } from 'lucide-react';
 import API_ENDPOINTS from '@/config/api';
 import { useTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
 import { Layout } from '@/components/layout/Layout';
+import { getWorkspaceStats } from '@/services/workspace';
 
 const weeklyThemes = [
   {
@@ -43,10 +42,10 @@ const weeklyThemes = [
   },
 ];
 
-const reports = [
-  { ticker: 'PETR4', title: 'Como ler um relatório de valuation', status: 'Liberado pelo assessor', theme: 'Valor intrínseco e margem de segurança' },
-  { ticker: 'VALE3', title: 'Dólar, commodities e empresas exportadoras', status: 'Novo conteúdo orientativo', theme: 'Cenário macro e sensibilidade cambial' },
-  { ticker: 'ITUB4', title: 'Bancos, juros e qualidade de resultado', status: 'Sugestão para próxima reunião', theme: 'ROE, crédito e dividendos' },
+const fallbackReports = [
+  { ticker: 'PETR4', title: 'Como ler um relatório de valuation', summary: 'Valor intrínseco e margem de segurança' },
+  { ticker: 'VALE3', title: 'Dólar, commodities e empresas exportadoras', summary: 'Cenário macro e sensibilidade cambial' },
+  { ticker: 'ITUB4', title: 'Bancos, juros e qualidade de resultado', summary: 'ROE, crédito e dividendos' },
 ];
 
 const plainLanguageSignals = [
@@ -64,7 +63,7 @@ const plainLanguageSignals = [
   },
 ];
 
-const learningTracks = [
+const fallbackTracks = [
   { title: 'Renda fixa na prática', progress: 68, next: 'Prefixado, pós-fixado e IPCA+' },
   { title: 'Ações de valor', progress: 42, next: 'Margem de segurança' },
   { title: 'Diversificação internacional', progress: 25, next: 'Risco cambial' },
@@ -74,15 +73,43 @@ const meetingQuestions = [
   'O que mudou no cenário de juros desde nossa última conversa?',
   'Faz sentido revisar exposição a ativos sensíveis ao dólar?',
   'Quais relatórios devo ler antes da próxima decisão?',
-  'Que riscos merecem mais atenção neste mês?'
+  'Que riscos merecem mais atenção neste mês?',
 ];
+
+function categoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    macro: 'Macro',
+    renda_fixa: 'Renda fixa',
+    acoes: 'Ações',
+    dolar: 'Dólar',
+    dividendos: 'Dividendos',
+    risco: 'Risco',
+  };
+  return labels[category] || category;
+}
 
 export default function ClientPortal() {
   const { tenant, buildReportParams } = useTenant();
+  const { user } = useAuth();
+  const stats = getWorkspaceStats();
+
+  const reports = stats.reports
+    .filter((report) => report.visibility === 'cliente')
+    .map((report) => ({ ticker: report.ticker, title: report.title, summary: report.summary }));
+
+  const visibleReports = reports.length > 0 ? reports : fallbackReports;
+  const visibleTracks = stats.contents.length > 0
+    ? stats.contents.map((content, index) => ({
+        title: content.title,
+        progress: Math.max(25, 72 - index * 12),
+        next: categoryLabel(content.category),
+      }))
+    : fallbackTracks;
 
   const openReport = (ticker: string) => {
     const params = buildReportParams();
-    const url = `${API_ENDPOINTS.reports.valuation(ticker)}?${params.toString()}`;
+    const normalizedTicker = ticker === 'MACRO' ? 'PETR4' : ticker;
+    const url = `${API_ENDPOINTS.reports.valuation(normalizedTicker)}?${params.toString()}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -101,7 +128,7 @@ export default function ClientPortal() {
               </span>
             </div>
             <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">
-              Inteligência de mercado para você decidir melhor com seu assessor.
+              {user?.fullName ? `${user.fullName}, inteligência de mercado para decidir melhor.` : 'Inteligência de mercado para você decidir melhor com seu assessor.'}
             </h1>
             <p className="text-slate-300 text-lg leading-relaxed">
               Este portal não substitui sua corretora nem mostra seus investimentos reais. Ele organiza mercado, conceitos, relatórios e perguntas úteis para você chegar mais preparado às conversas importantes.
@@ -113,7 +140,7 @@ export default function ClientPortal() {
             <p className="text-3xl font-black text-white">Juros, dólar e valuation</p>
             <p className="text-sm text-primary flex items-center gap-1 mt-3">
               <ArrowUpRight className="w-4 h-4" />
-              3 temas para discutir com o assessor
+              {visibleReports.length} materiais para discutir
             </p>
             <div className="mt-5 space-y-2">
               <div className="rounded-xl bg-slate-900/80 p-3 border border-slate-700/40">
@@ -149,12 +176,12 @@ export default function ClientPortal() {
               </h2>
               <p className="text-slate-400 mt-1">Materiais orientativos selecionados pelo escritório, sem exibir saldos ou posições reais.</p>
             </div>
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">3 novos</span>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{visibleReports.length} liberados</span>
           </div>
 
           <div className="space-y-3">
-            {reports.map((report) => (
-              <div key={report.ticker} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {visibleReports.map((report) => (
+              <div key={`${report.ticker}-${report.title}`} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-mono font-black">
                     {report.ticker.slice(0, 2)}
@@ -162,7 +189,7 @@ export default function ClientPortal() {
                   <div>
                     <p className="font-mono font-bold text-cyan-400">{report.ticker}</p>
                     <h3 className="font-bold text-white">{report.title}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{report.status} · {report.theme}</p>
+                    <p className="text-xs text-slate-500 mt-1">Liberado pelo assessor · {report.summary}</p>
                   </div>
                 </div>
                 <button
@@ -202,7 +229,7 @@ export default function ClientPortal() {
             Trilhas de conhecimento
           </h2>
           <div className="space-y-4">
-            {learningTracks.map((track) => (
+            {visibleTracks.map((track) => (
               <div key={track.title} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-white">{track.title}</h3>
