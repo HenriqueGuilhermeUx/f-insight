@@ -19,6 +19,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminAdvisors from './pages/AdminAdvisors';
 import AdminClients from './pages/AdminClients';
 import AdminReports from './pages/AdminReports';
+import AdminContents from './pages/AdminContents';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
 
@@ -92,6 +93,14 @@ function App() {
               element={
                 <ProtectedRoute roles={['admin', 'advisor']}>
                   <AdminReports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/conteudos"
+              element={
+                <ProtectedRoute roles={['admin', 'advisor']}>
+                  <AdminContents />
                 </ProtectedRoute>
               }
             />
