@@ -9,6 +9,8 @@ import {
 export type UserRole = 'admin' | 'advisor' | 'client';
 export type ClientProfile = 'conservador' | 'moderado' | 'arrojado';
 export type EducationLevel = 'iniciante' | 'intermediario' | 'avancado';
+export type ContentStatus = 'draft' | 'scheduled' | 'published';
+export type ContentOrigin = 'f_insight' | 'office' | 'advisor';
 
 export interface WorkspaceTenant {
   id: string;
@@ -70,6 +72,10 @@ export interface WorkspaceContent {
   title: string;
   category: 'macro' | 'renda_fixa' | 'acoes' | 'dolar' | 'dividendos' | 'risco';
   description: string;
+  origin?: ContentOrigin;
+  status?: ContentStatus;
+  scheduledAt?: string;
+  publishedAt?: string;
   createdAt: string;
 }
 
@@ -183,6 +189,9 @@ export function createDefaultWorkspace(): WorkspaceState {
         title: 'Renda fixa na prática',
         category: 'renda_fixa',
         description: 'Diferença entre pós-fixado, prefixado e IPCA+ em linguagem simples.',
+        origin: 'f_insight',
+        status: 'published',
+        publishedAt: now(),
         createdAt: now(),
       },
       {
@@ -192,6 +201,9 @@ export function createDefaultWorkspace(): WorkspaceState {
         title: 'Dólar e diversificação internacional',
         category: 'dolar',
         description: 'Como o câmbio pode afetar empresas, fundos globais e proteção patrimonial.',
+        origin: 'f_insight',
+        status: 'published',
+        publishedAt: now(),
         createdAt: now(),
       },
     ],
@@ -296,11 +308,15 @@ export function publishReport(input: Omit<WorkspaceReport, 'id' | 'createdAt'>) 
   return report;
 }
 
-export function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt'>) {
+export function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt' | 'publishedAt'>) {
   const workspace = getWorkspace();
+  const status = input.status || 'published';
   const content: WorkspaceContent = {
     ...input,
     id: makeId('content'),
+    origin: input.origin || 'office',
+    status,
+    publishedAt: status === 'published' ? now() : undefined,
     createdAt: now(),
   };
   workspace.contents.unshift(content);
