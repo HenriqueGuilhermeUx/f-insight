@@ -5,6 +5,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  Calculator,
   FileText,
   Plus,
   Shield,
@@ -21,6 +22,7 @@ export default function AdminDashboard() {
     { label: 'Clientes finais', value: stats.clients.length, icon: Users, href: '/admin/clientes' },
     { label: 'Relatórios publicados', value: stats.publishedReports, icon: FileText, href: '/admin/relatorios' },
     { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/admin/conteudos' },
+    { label: 'Ferramentas de análise', value: 4, icon: Calculator, href: '/admin/insights' },
   ];
 
   return (
@@ -47,7 +49,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -86,6 +88,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Criar conteúdo educativo</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/admin/insights" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Abrir ferramentas de análise</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
           </div>
         </div>
 
@@ -101,6 +107,7 @@ export default function AdminDashboard() {
               'Portal do cliente final educacional e seguro',
               'Relatórios PDF white-label por ativo',
               'Biblioteca de conteúdos educativos para trilhas',
+              'Ferramentas de análise por perfil',
               'Macroeconomia e sinais orientativos',
             ].map((item) => (
               <div key={item} className="rounded-xl bg-slate-950/40 border border-slate-700/40 p-3 text-sm text-slate-300">
