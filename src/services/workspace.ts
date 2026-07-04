@@ -104,6 +104,36 @@ function makeInviteToken() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function isPublishedContent(content: WorkspaceContent) {
+  return !content.status || content.status === 'published';
+}
+
+function shouldUseClientVisibleContent() {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname === '/cliente';
+}
+
+function normalizeWorkspaceLifecycle(workspace: WorkspaceState) {
+  const timestamp = Date.now();
+  let changed = false;
+
+  const contents = workspace.contents.map((content) => {
+    if (content.status === 'scheduled' && content.scheduledAt && new Date(content.scheduledAt).getTime() <= timestamp) {
+      changed = true;
+      return {
+        ...content,
+        status: 'published' as ContentStatus,
+        publishedAt: content.publishedAt || now(),
+      };
+    }
+    return content;
+  });
+
+  const normalized = changed ? { ...workspace, contents } : workspace;
+  if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  return normalized;
+}
+
 export function createDefaultWorkspace(): WorkspaceState {
   const tenantId = 'tenant_demo';
   const advisorId = 'advisor_demo';
@@ -218,7 +248,7 @@ export function getWorkspace(): WorkspaceState {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
       return seeded;
     }
-    return JSON.parse(raw) as WorkspaceState;
+    return normalizeWorkspaceLifecycle(JSON.parse(raw) as WorkspaceState);
   } catch {
     return createDefaultWorkspace();
   }
@@ -331,7 +361,10 @@ export function getWorkspaceStats() {
   const advisors = workspace.advisors.filter((item) => item.tenantId === tenantId);
   const clients = workspace.clients.filter((item) => item.tenantId === tenantId);
   const reports = workspace.reports.filter((item) => item.tenantId === tenantId);
-  const contents = workspace.contents.filter((item) => item.tenantId === tenantId);
+  const allContents = workspace.contents.filter((item) => item.tenantId === tenantId);
+  const contents = shouldUseClientVisibleContent()
+    ? allContents.filter(isPublishedContent)
+    : allContents;
 
   return {
     tenant: workspace.tenants.find((item) => item.id === tenantId) || workspace.tenants[0],
