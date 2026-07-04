@@ -145,6 +145,10 @@ export async function syncContentToSupabase(content: WorkspaceContent) {
       category: content.category,
       description: content.description,
       body: content.description,
+      origin: content.origin || 'office',
+      status: content.status || 'published',
+      scheduled_at: content.scheduledAt || null,
+      published_at: content.publishedAt || null,
     })
     .select('id')
     .single();
