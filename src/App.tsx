@@ -20,6 +20,7 @@ import AdminAdvisors from './pages/AdminAdvisors';
 import AdminClients from './pages/AdminClients';
 import AdminReports from './pages/AdminReports';
 import AdminContents from './pages/AdminContents';
+import ToolsHub from './pages/ToolsHub';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
 
@@ -40,70 +41,16 @@ function App() {
             <Route path="/macro" element={<MacroSignals />} />
             <Route path="/cadastro-escritorio" element={<RegisterOffice />} />
             <Route path="/convite/:token" element={<InvitePage />} />
-            <Route
-              path="/white-label"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <WhiteLabelSettings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/assessor"
-              element={
-                <ProtectedRoute roles={['admin', 'advisor']}>
-                  <AdvisorWorkspace />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/cliente"
-              element={
-                <ProtectedRoute roles={['admin', 'advisor', 'client']}>
-                  <ClientPortal />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/assessores"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <AdminAdvisors />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/clientes"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <AdminClients />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/relatorios"
-              element={
-                <ProtectedRoute roles={['admin', 'advisor']}>
-                  <AdminReports />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/conteudos"
-              element={
-                <ProtectedRoute roles={['admin', 'advisor']}>
-                  <AdminContents />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
+            <Route path="/admin/insights" element={<ProtectedRoute roles={['admin', 'advisor']}><ToolsHub /></ProtectedRoute>} />
+            <Route path="/white-label" element={<ProtectedRoute roles={['admin']}><WhiteLabelSettings /></ProtectedRoute>} />
+            <Route path="/assessor" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorWorkspace /></ProtectedRoute>} />
+            <Route path="/cliente" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ClientPortal /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/assessores" element={<ProtectedRoute roles={['admin']}><AdminAdvisors /></ProtectedRoute>} />
+            <Route path="/admin/clientes" element={<ProtectedRoute roles={['admin']}><AdminClients /></ProtectedRoute>} />
+            <Route path="/admin/relatorios" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminReports /></ProtectedRoute>} />
+            <Route path="/admin/conteudos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminContents /></ProtectedRoute>} />
             <Route path="*" element={<Home />} />
           </Routes>
           <Toaster position="top-right" richColors />
