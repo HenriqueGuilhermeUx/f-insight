@@ -20,6 +20,7 @@ import AdminAdvisors from './pages/AdminAdvisors';
 import AdminClients from './pages/AdminClients';
 import AdminReports from './pages/AdminReports';
 import AdminContents from './pages/AdminContents';
+import AdminContentFactory from './pages/AdminContentFactory';
 import ToolsHub from './pages/ToolsHub';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
@@ -51,6 +52,7 @@ function App() {
             <Route path="/admin/clientes" element={<ProtectedRoute roles={['admin']}><AdminClients /></ProtectedRoute>} />
             <Route path="/admin/relatorios" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminReports /></ProtectedRoute>} />
             <Route path="/admin/conteudos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminContents /></ProtectedRoute>} />
+            <Route path="/admin/fabrica-conteudo" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminContentFactory /></ProtectedRoute>} />
             <Route path="*" element={<Home />} />
           </Routes>
           <Toaster position="top-right" richColors />
