@@ -22,6 +22,7 @@ import AdminReports from './pages/AdminReports';
 import AdminContents from './pages/AdminContents';
 import AdminContentFactory from './pages/AdminContentFactory';
 import ToolsHub from './pages/ToolsHub';
+import FinancialCopilot from './pages/FinancialCopilot';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
 
@@ -42,6 +43,8 @@ function App() {
             <Route path="/macro" element={<MacroSignals />} />
             <Route path="/cadastro-escritorio" element={<RegisterOffice />} />
             <Route path="/convite/:token" element={<InvitePage />} />
+            <Route path="/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FinancialCopilot /></ProtectedRoute>} />
+            <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
             <Route path="/admin/insights" element={<ProtectedRoute roles={['admin', 'advisor']}><ToolsHub /></ProtectedRoute>} />
             <Route path="/white-label" element={<ProtectedRoute roles={['admin']}><WhiteLabelSettings /></ProtectedRoute>} />
