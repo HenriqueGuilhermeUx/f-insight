@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
+  Bot,
   Briefcase,
   Building2,
   Calculator,
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
     { label: 'Relatórios publicados', value: stats.publishedReports, icon: FileText, href: '/admin/relatorios' },
     { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/admin/conteudos' },
     { label: 'Ferramentas de análise', value: 4, icon: Calculator, href: '/admin/insights' },
+    { label: 'Fábrica editorial', value: 3, icon: Bot, href: '/admin/fabrica-conteudo' },
   ];
 
   return (
@@ -49,7 +51,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -88,6 +90,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Criar conteúdo educativo</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/admin/fabrica-conteudo" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Gerar pacote editorial F-Insight</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
             <Link to="/admin/insights" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Abrir ferramentas de análise</span>
               <Plus className="w-4 h-4 text-primary" />
@@ -107,6 +113,7 @@ export default function AdminDashboard() {
               'Portal do cliente final educacional e seguro',
               'Relatórios PDF white-label por ativo',
               'Biblioteca de conteúdos educativos para trilhas',
+              'Fábrica editorial F-Insight com rascunhos e agendamento',
               'Ferramentas de análise por perfil',
               'Macroeconomia e sinais orientativos',
             ].map((item) => (
