@@ -24,6 +24,7 @@ import AdminContentFactory from './pages/AdminContentFactory';
 import ToolsHub from './pages/ToolsHub';
 import FinancialCopilot from './pages/FinancialCopilot';
 import ContactCenter from './pages/ContactCenter';
+import ScheduledUpdates from './pages/ScheduledUpdates';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
 
@@ -46,6 +47,7 @@ function App() {
             <Route path="/convite/:token" element={<InvitePage />} />
             <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
+            <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
             <Route path="/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
