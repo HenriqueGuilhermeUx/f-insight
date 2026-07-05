@@ -14,6 +14,7 @@ import MacroSignals from './pages/MacroSignals';
 import WhiteLabelSettings from './pages/WhiteLabelSettings';
 import ClientPortal from './pages/ClientPortal';
 import AdvisorWorkspace from './pages/AdvisorWorkspace';
+import AdvisorFollowUps from './pages/AdvisorFollowUps';
 import RegisterOffice from './pages/RegisterOffice';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminAdvisors from './pages/AdminAdvisors';
@@ -48,6 +49,8 @@ function App() {
             <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
+            <Route path="/assessor/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
+            <Route path="/admin/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
             <Route path="/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
