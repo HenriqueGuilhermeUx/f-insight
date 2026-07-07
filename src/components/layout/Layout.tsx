@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -18,6 +18,11 @@ import {
   Building2,
   LogIn,
   LogOut,
+  Bot,
+  CalendarDays,
+  ClipboardList,
+  MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -27,7 +32,7 @@ import { useAuth } from '@/context/AuthContext';
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   badge?: number;
 }
 
@@ -36,6 +41,11 @@ const navItems: NavItem[] = [
   { label: 'Admin', href: '/admin', icon: Building2 },
   { label: 'Assessor', href: '/assessor', icon: Briefcase },
   { label: 'Cliente', href: '/cliente', icon: Users },
+  { label: 'IA', href: '/ia-financeira', icon: Bot },
+  { label: 'Insights', href: '/insights', icon: Sparkles },
+  { label: 'Contato', href: '/contato', icon: MessageCircle },
+  { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays },
+  { label: 'Acompanhamentos', href: '/admin/acompanhamentos', icon: ClipboardList },
   { label: 'Macro', href: '/macro', icon: Activity },
   { label: 'Radar', href: '/radar', icon: Search },
   { label: 'Análises', href: '/analises', icon: BarChart3 },
@@ -46,7 +56,7 @@ const navItems: NavItem[] = [
 ];
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
@@ -90,7 +100,7 @@ export function Layout({ children }: LayoutProps) {
               </div>
             </Link>
 
-            <nav className="hidden 2xl:flex items-center gap-1">
+            <nav className="hidden 2xl:flex items-center gap-1 overflow-x-auto max-w-[58vw]">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
@@ -99,7 +109,7 @@ export function Layout({ children }: LayoutProps) {
                     key={item.href}
                     to={item.href}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                       isActive
                         ? 'bg-primary/10 text-primary border border-primary/30'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -133,18 +143,18 @@ export function Layout({ children }: LayoutProps) {
                 Assessor
               </Link>
               <Link
+                to="/ia-financeira"
+                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
+              >
+                <Bot className="w-4 h-4" />
+                IA
+              </Link>
+              <Link
                 to="/cliente"
                 className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
               >
                 <Users className="w-4 h-4" />
                 Cliente
-              </Link>
-              <Link
-                to="/white-label"
-                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                White Label
               </Link>
 
               {user ? (
