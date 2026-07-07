@@ -2,30 +2,90 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search,
-  Filter,
-  TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronDown,
   Star,
-  Plus,
   SlidersHorizontal,
   X,
   Grid,
   List,
+  Database,
+  RefreshCcw,
+  Wifi,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatPrice, formatPercent, formatLargeNumber, getChangeColor, getChangeBgColor, debounce, getAssetTypeLabel } from '@/lib/utils';
-import { fetchAssets, searchAssets, mockData } from '@/services/marketData';
+import { formatPrice, formatPercent, formatLargeNumber, getChangeColor, getAssetTypeLabel } from '@/lib/utils';
+import { fetchAssets, mockData } from '@/services/marketData';
 import { useAppStore } from '@/hooks/useStore';
 import { Layout } from '@/components/layout/Layout';
 import { Asset } from '@/types';
+import API_ENDPOINTS from '@/config/api';
 
 type MarketFilter = 'br' | 'us' | 'crypto';
 type TypeFilter = 'all' | 'stock' | 'etf' | 'fii' | 'bdr' | 'crypto';
 type SortBy = 'ticker' | 'change' | 'volume' | 'price' | 'marketCap' | 'pe' | 'dy';
 type ViewMode = 'grid' | 'list';
+type DataSource = 'live' | 'demo' | 'mixed';
+
+interface LiveIndicator {
+  symbol: string;
+  provider: string;
+  providerSymbol?: string;
+  lastPrice: number;
+  change: number;
+  changePercent: number;
+  avgVolume: number;
+  fetchedAt: string;
+}
+
+const BR_SYMBOLS = ['PETR4.SA', 'VALE3.SA', 'ITUB4.SA', 'BBDC4.SA', 'WEGE3.SA'];
+
+const BR_ASSET_NAMES: Record<string, { name: string; sector?: string }> = {
+  PETR4: { name: 'Petrobras PN', sector: 'Energia' },
+  VALE3: { name: 'Vale ON', sector: 'Mineração' },
+  ITUB4: { name: 'Itaú Unibanco PN', sector: 'Financeiro' },
+  BBDC4: { name: 'Bradesco PN', sector: 'Financeiro' },
+  WEGE3: { name: 'WEG ON', sector: 'Industrial' },
+};
+
+function cleanTicker(symbol: string) {
+  return symbol.replace(/\.SA$/i, '').toUpperCase();
+}
+
+function buildLiveAsset(indicator: LiveIndicator): Asset {
+  const ticker = cleanTicker(indicator.symbol);
+  const meta = BR_ASSET_NAMES[ticker] || { name: ticker };
+
+  return {
+    ticker,
+    name: meta.name,
+    price: indicator.lastPrice,
+    change: indicator.change,
+    changePercent: indicator.changePercent,
+    volume: indicator.avgVolume,
+    type: 'stock',
+    currency: 'BRL',
+    sector: meta.sector,
+    country: 'BR',
+  };
+}
+
+async function fetchLiveBrazilAssets() {
+  const url = `${API_ENDPOINTS.live.indicators}?symbols=${BR_SYMBOLS.join(',')}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Live indicators unavailable');
+
+  const payload = await response.json();
+  const rows = Array.isArray(payload.data) ? payload.data as LiveIndicator[] : [];
+  const validRows = rows.filter((row) => row.lastPrice && Number.isFinite(row.lastPrice));
+
+  return {
+    assets: validRows.map(buildLiveAsset),
+    source: String(payload.source || 'supabase-cache'),
+    updatedAt: validRows[0]?.fetchedAt || payload.updatedAt || null,
+    providers: [...new Set(validRows.map((row) => row.provider))],
+  };
+}
 
 function AssetRow({ asset, onAddToWatchlist }: { asset: Asset; onAddToWatchlist: (asset: Asset) => void }) {
   const isPositive = asset.changePercent >= 0;
@@ -181,6 +241,9 @@ export default function Radar() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [dataSource, setDataSource] = useState<DataSource>('demo');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [liveProviders, setLiveProviders] = useState<string[]>([]);
 
   const { addToWatchlist } = useAppStore();
 
@@ -188,16 +251,34 @@ export default function Radar() {
     const loadAssets = async () => {
       setLoading(true);
       try {
+        if (marketFilter === 'br') {
+          const live = await fetchLiveBrazilAssets();
+          const base = await fetchAssets(marketFilter);
+          const liveTickers = new Set(live.assets.map((asset) => asset.ticker));
+          const fallbackAssets = base.filter((asset) => !liveTickers.has(asset.ticker));
+
+          setAssets(live.assets.length > 0 ? [...live.assets, ...fallbackAssets] : base);
+          setDataSource(live.assets.length > 0 ? 'live' : 'demo');
+          setLastUpdatedAt(live.updatedAt);
+          setLiveProviders(live.providers);
+          return;
+        }
+
         const data = await fetchAssets(marketFilter);
         setAssets(data);
+        setDataSource(marketFilter === 'crypto' ? 'live' : 'mixed');
+        setLastUpdatedAt(new Date().toISOString());
+        setLiveProviders(marketFilter === 'crypto' ? ['coingecko'] : []);
       } catch (e) {
-        // Use mock data on error
         const allAssets = marketFilter === 'br'
           ? [...mockData.stocks.br, ...mockData.etfs, ...mockData.fiis]
           : marketFilter === 'us'
           ? mockData.stocks.us
           : mockData.crypto;
         setAssets(allAssets);
+        setDataSource('demo');
+        setLastUpdatedAt(null);
+        setLiveProviders([]);
       } finally {
         setLoading(false);
       }
@@ -205,11 +286,9 @@ export default function Radar() {
     loadAssets();
   }, [marketFilter]);
 
-  // Filter and sort assets
   const filteredAssets = useMemo(() => {
     let result = [...assets];
 
-    // Apply search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(a =>
@@ -218,12 +297,10 @@ export default function Radar() {
       );
     }
 
-    // Apply type filter
     if (typeFilter !== 'all') {
       result = result.filter(a => a.type === typeFilter);
     }
 
-    // Apply sorting
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
@@ -253,17 +330,49 @@ export default function Radar() {
     addToWatchlist(asset);
   };
 
+  const sourceLabel = dataSource === 'live'
+    ? 'Dados ao vivo'
+    : dataSource === 'mixed'
+    ? 'Dados mistos'
+    : 'Modo demo';
+
+  const sourceIcon = dataSource === 'live' ? Wifi : Database;
+  const SourceIcon = sourceIcon;
+
   return (
     <Layout>
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Radar de Ativos</h1>
-        <p className="text-slate-400">Busque e filtre ativos por mercado, tipo e critérios</p>
+      <div className="mb-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-slate-900/80 to-slate-950 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-4xl font-black text-white mb-2">Radar de Ativos</h1>
+            <p className="text-slate-400">Busque e filtre ativos por mercado, tipo e critérios com cache vivo no Supabase.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className={cn(
+              'rounded-2xl border px-4 py-3 min-w-[220px]',
+              dataSource === 'live' ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-amber-500/20 bg-amber-500/10'
+            )}>
+              <div className="flex items-center gap-2 mb-1">
+                <SourceIcon className={cn('w-4 h-4', dataSource === 'live' ? 'text-emerald-400' : 'text-amber-400')} />
+                <span className={cn('text-xs font-bold', dataSource === 'live' ? 'text-emerald-300' : 'text-amber-300')}>{sourceLabel}</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                {lastUpdatedAt ? `Atualizado em ${new Date(lastUpdatedAt).toLocaleString('pt-BR')}` : 'Usando fallback local'}
+              </p>
+              {liveProviders.length > 0 && <p className="text-[11px] text-slate-500 mt-1">Fonte: {liveProviders.join(', ')}</p>}
+            </div>
+            <Link
+              to="/admin/status-dados"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-800/60 px-4 py-3 text-sm font-bold text-slate-200 hover:border-primary/40 hover:text-white transition-colors"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Status dos dados
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* Search and Filters */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
@@ -283,7 +392,6 @@ export default function Radar() {
           )}
         </div>
 
-        {/* Market Tabs */}
         <div className="flex gap-2">
           {(['br', 'us', 'crypto'] as const).map((market) => (
             <button
@@ -301,7 +409,6 @@ export default function Radar() {
           ))}
         </div>
 
-        {/* Filter Toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
@@ -315,7 +422,6 @@ export default function Radar() {
           Filtros
         </button>
 
-        {/* View Toggle */}
         <div className="flex gap-1 bg-slate-800/50 rounded-lg p-1">
           <button
             onClick={() => setViewMode('grid')}
@@ -338,11 +444,9 @@ export default function Radar() {
         </div>
       </div>
 
-      {/* Filter Panel */}
       {showFilters && (
         <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-slate-700/40 animate-fade-in">
           <div className="flex flex-wrap gap-6">
-            {/* Type Filter */}
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2">Tipo</label>
               <div className="flex flex-wrap gap-2">
@@ -363,7 +467,6 @@ export default function Radar() {
               </div>
             </div>
 
-            {/* Sort */}
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2">Ordenar por</label>
               <div className="flex gap-2">
@@ -389,7 +492,6 @@ export default function Radar() {
         </div>
       )}
 
-      {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-slate-400">
           {loading ? 'Carregando...' : `${filteredAssets.length} ativos encontrados`}
@@ -404,7 +506,6 @@ export default function Radar() {
         )}
       </div>
 
-      {/* Grid View */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {loading ? (
@@ -425,7 +526,6 @@ export default function Radar() {
         </div>
       )}
 
-      {/* List View */}
       {viewMode === 'list' && (
         <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden">
           <div className="overflow-x-auto">
