@@ -1,3 +1,4 @@
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getWorkspaceStats } from '@/services/workspace';
 import { getScheduledUpdates } from '@/services/updateScheduler';
 
@@ -7,6 +8,9 @@ export type FollowUpReason = 'report' | 'macro' | 'content' | 'risk' | 'meeting'
 
 export interface FollowUpTask {
   id: string;
+  tenantId?: string;
+  advisorId?: string;
+  clientId?: string;
   clientName: string;
   clientProfile: string;
   title: string;
@@ -17,6 +21,8 @@ export interface FollowUpTask {
   status: FollowUpStatus;
   dueAt: string;
   createdAt: string;
+  source?: 'local' | 'supabase';
+  synced?: boolean;
 }
 
 const STORAGE_KEY = 'f-insight-followups';
@@ -35,6 +41,10 @@ function makeId(prefix = 'followup') {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`;
 }
 
+function isUuid(value?: string) {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+}
+
 function reasonLabel(reason: FollowUpReason) {
   const labels: Record<FollowUpReason, string> = {
     report: 'Relatório',
@@ -45,6 +55,79 @@ function reasonLabel(reason: FollowUpReason) {
     news: 'Notícia',
   };
   return labels[reason];
+}
+
+function readLocalFollowUps(): FollowUpTask[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as FollowUpTask[];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalFollowUps(items: FollowUpTask[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 250)));
+}
+
+function stableKey(item: Pick<FollowUpTask, 'title' | 'clientName' | 'dueAt'>) {
+  return `${item.clientName}|${item.title}|${item.dueAt}`;
+}
+
+function mapSupabaseTask(row: any): FollowUpTask {
+  return {
+    id: String(row.id),
+    tenantId: row.tenant_id || undefined,
+    advisorId: row.advisor_id || undefined,
+    clientId: row.client_id || undefined,
+    clientName: row.client_name || 'Cliente Final Demo',
+    clientProfile: row.client_profile || 'moderado',
+    title: row.title || 'Follow-up',
+    reason: row.reason || 'content',
+    priority: row.priority || 'media',
+    suggestedAction: row.suggested_action || '',
+    script: row.script || '',
+    status: row.status || 'open',
+    dueAt: row.due_at || now(),
+    createdAt: row.created_at || now(),
+    source: 'supabase',
+    synced: true,
+  };
+}
+
+async function syncFollowUpToSupabase(task: FollowUpTask) {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase frontend not configured' };
+
+  const row = {
+    tenant_id: isUuid(task.tenantId) ? task.tenantId : null,
+    advisor_id: isUuid(task.advisorId) ? task.advisorId : null,
+    client_id: isUuid(task.clientId) ? task.clientId : null,
+    client_name: task.clientName,
+    client_profile: task.clientProfile,
+    title: task.title,
+    reason: task.reason,
+    priority: task.priority,
+    suggested_action: task.suggestedAction,
+    script: task.script,
+    status: task.status,
+    due_at: task.dueAt,
+    created_at: task.createdAt,
+  };
+
+  const { data, error } = await supabase
+    .from('follow_up_tasks')
+    .insert(row)
+    .select('id')
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+
+  const next = readLocalFollowUps().map((item) => (
+    item.id === task.id ? { ...item, id: data?.id || item.id, source: 'supabase' as const, synced: true } : item
+  ));
+  saveLocalFollowUps(next);
+  return { ok: true, id: data?.id };
 }
 
 export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
@@ -73,6 +156,7 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(1),
       createdAt: now(),
+      source: 'local',
     },
     {
       id: 'demo_followup_macro',
@@ -86,6 +170,7 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(2),
       createdAt: now(),
+      source: 'local',
     },
     {
       id: 'demo_followup_content',
@@ -101,6 +186,7 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(4),
       createdAt: now(),
+      source: 'local',
     },
     {
       id: 'demo_followup_risk',
@@ -114,26 +200,50 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(5),
       createdAt: now(),
+      source: 'local',
     },
   ];
 }
 
 export function getFollowUps() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    const local = readLocalFollowUps();
+    if (local.length === 0) {
       const seeded = generateFollowUpsFromWorkspace();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+      saveLocalFollowUps(seeded);
       return seeded;
     }
-    return JSON.parse(raw) as FollowUpTask[];
+    return local;
   } catch {
     return generateFollowUpsFromWorkspace();
   }
 }
 
+export async function loadFollowUpsFromSupabase() {
+  const local = getFollowUps();
+
+  if (!isSupabaseConfigured || !supabase) return local;
+
+  const { data, error } = await supabase
+    .from('follow_up_tasks')
+    .select('id,tenant_id,advisor_id,client_id,client_name,client_profile,title,reason,priority,suggested_action,script,status,due_at,created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error || !Array.isArray(data)) return local;
+
+  const localKeys = new Set(local.map(stableKey));
+  const remote = data.map(mapSupabaseTask).filter((item) => !localKeys.has(stableKey(item)));
+  const merged = [...remote, ...local]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 250);
+
+  saveLocalFollowUps(merged);
+  return merged;
+}
+
 export function saveFollowUps(items: FollowUpTask[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  saveLocalFollowUps(items);
   return items;
 }
 
@@ -144,9 +254,12 @@ export function createFollowUp(input: Omit<FollowUpTask, 'id' | 'createdAt' | 's
     id: makeId(),
     status: 'open',
     createdAt: now(),
+    source: 'local',
+    synced: false,
   };
   const next = [task, ...items];
   saveFollowUps(next);
+  void syncFollowUpToSupabase(task);
   return task;
 }
 
@@ -154,6 +267,14 @@ export function markFollowUpDone(id: string) {
   const items = getFollowUps();
   const next = items.map((item) => item.id === id ? { ...item, status: 'done' as FollowUpStatus } : item);
   saveFollowUps(next);
+
+  if (isUuid(id) && isSupabaseConfigured && supabase) {
+    void supabase
+      .from('follow_up_tasks')
+      .update({ status: 'done', completed_at: now(), updated_at: now() })
+      .eq('id', id);
+  }
+
   return next;
 }
 
