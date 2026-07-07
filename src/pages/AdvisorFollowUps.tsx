@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import {
   Bot,
   CheckCircle2,
@@ -21,6 +21,7 @@ import {
   getFollowUps,
   getFollowUpStats,
   getReasonLabel,
+  loadFollowUpsFromSupabase,
   markFollowUpDone,
   resetFollowUpsFromWorkspace,
 } from '@/services/followUpEngine';
@@ -48,6 +49,7 @@ export default function AdvisorFollowUps() {
   const firstClient = stats.clients[0];
   const [items, setItems] = useState(() => getFollowUps());
   const [saved, setSaved] = useState(false);
+  const [loadingRemote, setLoadingRemote] = useState(true);
   const [form, setForm] = useState<FormState>({
     clientName: firstClient?.name || 'Cliente Final Demo',
     clientProfile: firstClient?.profile || 'moderado',
@@ -59,7 +61,24 @@ export default function AdvisorFollowUps() {
     dueAt: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
   });
 
-  const followStats = getFollowUpStats();
+  useEffect(() => {
+    let mounted = true;
+    loadFollowUpsFromSupabase().then((data) => {
+      if (mounted) setItems(data);
+    }).finally(() => {
+      if (mounted) setLoadingRemote(false);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const liveStats = {
+    total: items.length,
+    open: items.filter((item) => item.status === 'open').length,
+    done: items.filter((item) => item.status === 'done').length,
+    high: items.filter((item) => item.priority === 'alta' && item.status === 'open').length,
+  };
+  const fallbackStats = getFollowUpStats();
+  const followStats = items.length > 0 ? liveStats : fallbackStats;
   const openItems = items.filter((item) => item.status === 'open');
   const doneItems = items.filter((item) => item.status === 'done');
 
@@ -82,6 +101,15 @@ export default function AdvisorFollowUps() {
     setItems(resetFollowUpsFromWorkspace());
   };
 
+  const reloadRemote = async () => {
+    setLoadingRemote(true);
+    try {
+      setItems(await loadFollowUpsFromSupabase());
+    } finally {
+      setLoadingRemote(false);
+    }
+  };
+
   return (
     <Layout>
       <section className="mb-8 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-slate-900/80 to-slate-950 p-6 lg:p-8">
@@ -93,7 +121,7 @@ export default function AdvisorFollowUps() {
             </span>
             <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">Clientes que precisam de ação agora.</h1>
             <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
-              Transforme relatórios, notícias, conteúdos e sinais macro em próximos passos claros para o assessor.
+              Transforme mensagens, relatórios, notícias, conteúdos e sinais macro em próximos passos claros para o assessor.
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 min-w-[280px]">
@@ -181,7 +209,7 @@ export default function AdvisorFollowUps() {
             {saved && (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Follow-up criado na demo.
+                Follow-up criado e sincronizado.
               </div>
             )}
 
@@ -201,10 +229,16 @@ export default function AdvisorFollowUps() {
               </h2>
               <p className="text-slate-400 mt-1">Ações abertas, textos prontos e prioridades do assessor.</p>
             </div>
-            <button onClick={regenerate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white hover:border-primary/50 transition-colors">
-              <RefreshCcw className="w-4 h-4" />
-              Regerar sugestões
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button onClick={reloadRemote} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white hover:border-primary/50 transition-colors">
+                <RefreshCcw className="w-4 h-4" />
+                {loadingRemote ? 'Sincronizando...' : 'Sincronizar'}
+              </button>
+              <button onClick={regenerate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white hover:border-primary/50 transition-colors">
+                <RefreshCcw className="w-4 h-4" />
+                Regerar sugestões
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3 mb-6">
@@ -215,6 +249,7 @@ export default function AdvisorFollowUps() {
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{getReasonLabel(item.reason)}</span>
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${priorityClasses[item.priority]}`}>Prioridade {item.priority}</span>
+                      <span className="inline-flex rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">{item.synced ? 'Supabase' : 'Local'}</span>
                     </div>
                     <h3 className="font-bold text-white mb-1">{item.title}</h3>
                     <p className="text-sm text-slate-400 mb-2">{item.clientName} · perfil {item.clientProfile}</p>
@@ -243,7 +278,7 @@ export default function AdvisorFollowUps() {
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
               <h3 className="font-bold text-white flex items-center gap-2 mb-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                Concluídos na demo
+                Concluídos
               </h3>
               <div className="space-y-2">
                 {doneItems.slice(0, 4).map((item) => <p key={item.id} className="text-sm text-emerald-100/80">{item.title} · {item.clientName}</p>)}
