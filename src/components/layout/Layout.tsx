@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   { label: 'Cliente', href: '/cliente', icon: Users },
   { label: 'IA', href: '/ia-financeira', icon: Bot },
   { label: 'Insights', href: '/insights', icon: Sparkles },
-  { label: 'Contato', href: '/contato', icon: MessageCircle },
+  { label: 'Comunicação', href: '/contato', icon: MessageCircle },
   { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays },
   { label: 'Acompanhamentos', href: '/admin/acompanhamentos', icon: ClipboardList },
   { label: 'Macro', href: '/macro', icon: Activity },
@@ -252,7 +252,7 @@ export function Layout({ children }: LayoutProps) {
                 Termos
               </Link>
               <Link to="/contato" className="hover:text-slate-300 transition-colors">
-                Contato
+                Comunicação
               </Link>
             </div>
           </div>
