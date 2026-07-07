@@ -9,6 +9,7 @@ import {
   Building2,
   Calculator,
   ClipboardList,
+  Database,
   FileText,
   Plus,
   Shield,
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
     { label: 'IA financeira', value: 6, icon: Bot, href: '/admin/ia-financeira' },
     { label: 'Atualizações', value: updateStats.active, icon: Bell, href: '/admin/atualizacoes' },
     { label: 'Follow-ups', value: followStats.open, icon: ClipboardList, href: '/admin/acompanhamentos' },
+    { label: 'Dados ao vivo', value: 'ON', icon: Database, href: '/admin/status-dados' },
   ];
 
   return (
@@ -60,7 +62,7 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -107,6 +109,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Programar atualizações automáticas</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/admin/status-dados" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Ver operação de dados ao vivo</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
             <Link to="/admin/acompanhamentos" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Abrir cockpit de follow-up</span>
               <Plus className="w-4 h-4 text-primary" />
@@ -136,6 +142,7 @@ export default function AdminDashboard() {
               'Biblioteca de conteúdos educativos para trilhas',
               'Fábrica editorial F-Insight com rascunhos e agendamento',
               'Central de atualizações programadas',
+              'Operação de dados ao vivo com Supabase e cron',
               'Cockpit de follow-up do assessor',
               'IA financeira por perfil com guardrails comerciais',
               'Ferramentas de análise por perfil',
