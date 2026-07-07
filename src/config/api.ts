@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
   },
   live: {
     status: `${API_URL}/api/live/status`,
+    indicators: `${API_URL}/api/live/indicators`,
     refresh: `${API_URL}/api/live/refresh`,
     refreshNews: `${API_URL}/api/live/refresh/news`,
     refreshIndicators: `${API_URL}/api/live/refresh/indicators`,
