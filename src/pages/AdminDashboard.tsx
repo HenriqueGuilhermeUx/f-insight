@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Database,
   FileText,
+  MessageCircle,
   Plus,
   Shield,
   Users,
@@ -35,6 +36,7 @@ export default function AdminDashboard() {
     { label: 'IA financeira', value: 6, icon: Bot, href: '/admin/ia-financeira' },
     { label: 'Atualizações', value: updateStats.active, icon: Bell, href: '/admin/atualizacoes' },
     { label: 'Follow-ups', value: followStats.open, icon: ClipboardList, href: '/admin/acompanhamentos' },
+    { label: 'Comunicação', value: 'ON', icon: MessageCircle, href: '/contato' },
     { label: 'Dados ao vivo', value: 'ON', icon: Database, href: '/admin/status-dados' },
   ];
 
@@ -57,12 +59,12 @@ export default function AdminDashboard() {
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 min-w-[280px]">
             <Shield className="w-6 h-6 text-emerald-400 mb-3" />
             <h3 className="font-bold text-white mb-2">Modelo seguro</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">Portal orientativo, com curadoria e relatórios liberados pelo escritório.</p>
+            <p className="text-sm text-slate-300 leading-relaxed">Portal orientativo, com curadoria, relatórios liberados e comunicação registrada.</p>
           </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -105,6 +107,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Gerar pacote editorial F-Insight</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/contato" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Abrir comunicação assessor-cliente</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
             <Link to="/admin/atualizacoes" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Programar atualizações automáticas</span>
               <Plus className="w-4 h-4 text-primary" />
@@ -142,6 +148,7 @@ export default function AdminDashboard() {
               'Biblioteca de conteúdos educativos para trilhas',
               'Fábrica editorial F-Insight com rascunhos e agendamento',
               'Central de atualizações programadas',
+              'Comunicação assessor-cliente salva no Supabase',
               'Operação de dados ao vivo com Supabase e cron',
               'Cockpit de follow-up do assessor',
               'IA financeira por perfil com guardrails comerciais',
