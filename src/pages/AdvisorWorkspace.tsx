@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import {
   ArrowUpRight,
   BarChart3,
@@ -25,14 +26,14 @@ const clients = [
 
 const actions = [
   'Gerar PDF PETR4 para reunião de hoje',
-  'Enviar resumo macro semanal para clientes moderados',
+  'Enviar mensagem registrada sobre cenário macro',
   'Revisar exposição a dólar na carteira modelo',
-  'Atualizar comentário do assessor no portal do cliente',
+  'Atualizar comentário educativo no portal do cliente',
 ];
 
 const pipeline = [
   { label: 'Clientes com relatório novo', value: 12, icon: FileText },
-  { label: 'Reuniões na semana', value: 8, icon: Clock },
+  { label: 'Mensagens registradas', value: 'ON', icon: MessageSquare },
   { label: 'Sinais ativos para comentar', value: 3, icon: Sparkles },
   { label: 'PDFs gerados no mês', value: 46, icon: Download },
 ];
@@ -62,13 +63,22 @@ export default function AdvisorWorkspace() {
               Aqui o escritório transforma dados em conversa: relatórios prontos, sinais para comentar, clientes para acionar e materiais com a marca de {tenant.brandName}.
             </p>
           </div>
-          <button
-            onClick={() => openReport('PETR4')}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Gerar PDF agora
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              to="/contato"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-bold text-primary hover:bg-primary/15 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Mensagem registrada
+            </Link>
+            <button
+              onClick={() => openReport('PETR4')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Gerar PDF agora
+            </button>
+          </div>
         </div>
       </section>
 
@@ -115,10 +125,10 @@ export default function AdvisorWorkspace() {
                   <p className="text-xs text-primary mt-1">{client.status}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 border border-slate-700/50 hover:border-primary/40 transition-colors">
+                  <Link to="/contato" className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 border border-slate-700/50 hover:border-primary/40 transition-colors">
                     <Mail className="w-3.5 h-3.5" />
-                    E-mail
-                  </button>
+                    Mensagem
+                  </Link>
                   <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-colors">
                     <Send className="w-3.5 h-3.5" />
                     Enviar relatório
@@ -157,8 +167,8 @@ export default function AdvisorWorkspace() {
         </div>
         <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
           <MessageSquare className="w-6 h-6 text-emerald-400 mb-3" />
-          <h3 className="font-bold text-white mb-2">Relevante para o assessor</h3>
-          <p className="text-sm text-slate-400 leading-relaxed">Entrega pauta pronta para reuniões, follow-up e educação financeira do cliente.</p>
+          <h3 className="font-bold text-white mb-2">Comunicação registrada</h3>
+          <p className="text-sm text-slate-400 leading-relaxed">Transforma relatório, notícia e cenário macro em conversa rastreável com o cliente.</p>
         </div>
         <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
           <FileText className="w-6 h-6 text-amber-400 mb-3" />
