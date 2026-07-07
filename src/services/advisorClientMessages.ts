@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { type AuthRole } from '@/context/AuthContext';
+import { createFollowUp, type FollowUpReason } from '@/services/followUpEngine';
 
 export type MessageTopic = 'report' | 'news' | 'macro' | 'education' | 'meeting' | 'question';
 export type MessageStatus = 'sent' | 'read' | 'archived';
@@ -61,6 +62,12 @@ function now() {
   return new Date().toISOString();
 }
 
+function addDays(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
 function makeLocalId() {
   return `msg_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`;
 }
@@ -102,6 +109,39 @@ function mapSupabaseRow(row: any): AdvisorClientMessage {
     source: 'supabase',
     synced: true,
   };
+}
+
+function topicToReason(topic: MessageTopic): FollowUpReason {
+  if (topic === 'report') return 'report';
+  if (topic === 'macro') return 'macro';
+  if (topic === 'news') return 'news';
+  if (topic === 'meeting') return 'meeting';
+  return 'content';
+}
+
+function createFollowUpAfterMessage(input: SendMessageInput, message: AdvisorClientMessage) {
+  const clientName = input.clientName || 'Cliente Final Demo';
+  const isClientRequest = input.senderRole === 'client';
+  const reason = topicToReason(input.topic);
+
+  createFollowUp({
+    tenantId: input.tenantId,
+    advisorId: input.advisorId,
+    clientId: input.clientId,
+    clientName,
+    clientProfile: 'moderado',
+    title: isClientRequest ? `Responder cliente: ${message.subject}` : `Acompanhar retorno: ${message.subject}`,
+    reason,
+    priority: isClientRequest || input.topic === 'meeting' ? 'alta' : 'media',
+    suggestedAction: isClientRequest
+      ? 'Responder a dúvida do cliente e registrar o próximo passo da conversa.'
+      : 'Verificar se o cliente leu a mensagem e se precisa de explicação ou reunião.',
+    script: isClientRequest
+      ? `Cliente enviou: "${message.subject}". Preparar resposta educativa e orientar próximos passos sem promessa ou recomendação automática.`
+      : `Mensagem enviada sobre "${message.subject}". Fazer follow-up curto para confirmar leitura, dúvidas e necessidade de reunião.`,
+    dueAt: addDays(isClientRequest ? 1 : 2),
+    source: 'local',
+  });
 }
 
 export function checkMessageCompliance(text: string) {
@@ -171,35 +211,42 @@ export async function sendAdvisorClientMessage(input: SendMessageInput) {
   const local = readLocalMessages();
   saveLocalMessages([message, ...local]);
 
-  if (!isSupabaseConfigured || !supabase) {
-    return { message, persisted: false, error: 'Supabase frontend not configured' };
+  let persisted = false;
+  let errorMessage: string | null = null;
+  let savedMessage = message;
+
+  if (isSupabaseConfigured && supabase) {
+    const row = {
+      tenant_id: isUuid(input.tenantId) ? input.tenantId : null,
+      advisor_id: isUuid(input.advisorId) ? input.advisorId : null,
+      client_id: isUuid(input.clientId) ? input.clientId : null,
+      sender_role: input.senderRole,
+      subject: message.subject,
+      body: message.body,
+      topic: message.topic,
+      status: message.status,
+      created_at: createdAt,
+    };
+
+    const { data, error } = await supabase
+      .from('advisor_client_messages')
+      .insert(row)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      errorMessage = error.message;
+    } else {
+      persisted = true;
+      savedMessage = { ...message, id: data?.id || message.id, source: 'supabase', synced: true };
+      const nextLocal = readLocalMessages().map((item) => item.id === message.id ? savedMessage : item);
+      saveLocalMessages(nextLocal);
+    }
+  } else {
+    errorMessage = 'Supabase frontend not configured';
   }
 
-  const row = {
-    tenant_id: isUuid(input.tenantId) ? input.tenantId : null,
-    advisor_id: isUuid(input.advisorId) ? input.advisorId : null,
-    client_id: isUuid(input.clientId) ? input.clientId : null,
-    sender_role: input.senderRole,
-    subject: message.subject,
-    body: message.body,
-    topic: message.topic,
-    status: message.status,
-    created_at: createdAt,
-  };
+  createFollowUpAfterMessage(input, savedMessage);
 
-  const { data, error } = await supabase
-    .from('advisor_client_messages')
-    .insert(row)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    return { message, persisted: false, error: error.message };
-  }
-
-  const updated = { ...message, id: data?.id || message.id, source: 'supabase' as const, synced: true };
-  const nextLocal = readLocalMessages().map((item) => item.id === message.id ? updated : item);
-  saveLocalMessages(nextLocal);
-
-  return { message: updated, persisted: true, error: null };
+  return { message: savedMessage, persisted, error: errorMessage };
 }
