@@ -1,3 +1,3 @@
-export default function ContactCenter() {
-  return null;
-}
+import Communication from './MessagesCenter';
+
+export default Communication;
