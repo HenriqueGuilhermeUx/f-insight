@@ -19,6 +19,13 @@ export const API_ENDPOINTS = {
     stock: (symbol: string) => `${API_URL}/api/news/stock/${symbol}`,
     sentiment: (symbol: string) => `${API_URL}/api/news/sentiment/${symbol}`
   },
+  live: {
+    status: `${API_URL}/api/live/status`,
+    refresh: `${API_URL}/api/live/refresh`,
+    refreshNews: `${API_URL}/api/live/refresh/news`,
+    refreshIndicators: `${API_URL}/api/live/refresh/indicators`,
+    refreshMacro: `${API_URL}/api/live/refresh/macro`
+  },
   macro: {
     overview: `${API_URL}/api/macro/overview`,
     refresh: `${API_URL}/api/macro/refresh`
