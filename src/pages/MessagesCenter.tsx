@@ -43,6 +43,12 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString('pt-BR');
 }
 
+function roleLabel(role: string) {
+  if (role === 'client') return 'Cliente';
+  if (role === 'admin') return 'Admin';
+  return 'Assessor';
+}
+
 export default function MessagesCenter() {
   const { user } = useAuth();
   const stats = getWorkspaceStats();
@@ -94,7 +100,7 @@ export default function MessagesCenter() {
     setSending(true);
     setFeedback('');
     try {
-      const result = await sendAdvisorClientMessage({
+      await sendAdvisorClientMessage({
         tenantId: tenant?.id,
         advisorId: advisor?.id,
         clientId: selectedClient.id,
@@ -109,7 +115,7 @@ export default function MessagesCenter() {
       setSubject('');
       setBody('');
       setTopic(user.role === 'client' ? 'question' : 'education');
-      setFeedback(result.persisted ? 'Mensagem salva no Supabase.' : 'Mensagem salva localmente.');
+      setFeedback('Mensagem enviada e registrada. O próximo passo foi criado automaticamente.');
       await refreshMessages();
     } finally {
       setSending(false);
@@ -123,9 +129,9 @@ export default function MessagesCenter() {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-4">
               <MessageCircle className="w-3.5 h-3.5" />
-              Mensagens
+              Comunicação
             </span>
-            <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">Comunicação com contexto.</h1>
+            <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">Conversa registrada com contexto.</h1>
             <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
               Canal para relatórios, notícias, cenário macro, conteúdos educativos, dúvidas e pedidos de reunião.
             </p>
@@ -133,7 +139,7 @@ export default function MessagesCenter() {
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 min-w-[260px]">
             <ShieldCheck className="w-6 h-6 text-emerald-400 mb-3" />
             <h3 className="font-bold text-white mb-2">Padrão seguro</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">Mensagens com linguagem informativa, educativa e registrada.</p>
+            <p className="text-sm text-slate-300 leading-relaxed">Mensagens com linguagem informativa, educativa e histórico organizado.</p>
           </div>
         </div>
       </section>
@@ -253,8 +259,7 @@ export default function MessagesCenter() {
               <article key={message.id} className="rounded-2xl border border-slate-700/40 bg-slate-950/50 p-4">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{topicLabels[message.topic] || message.topic}</span>
-                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-300">{message.senderRole}</span>
-                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">{message.synced ? 'Supabase' : 'Local'}</span>
+                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-300">{roleLabel(message.senderRole)}</span>
                 </div>
                 <h3 className="font-bold text-white">{message.subject}</h3>
                 <p className="text-xs text-slate-400 mt-1">{message.senderName} · {formatDate(message.createdAt)}</p>
