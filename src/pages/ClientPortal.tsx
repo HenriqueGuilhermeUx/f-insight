@@ -142,7 +142,7 @@ export default function ClientPortal() {
     setQuickSending(true);
     setQuickFeedback('');
     try {
-      const result = await sendAdvisorClientMessage({
+      await sendAdvisorClientMessage({
         tenantId: stats.tenant?.id,
         advisorId: advisor?.id,
         clientId: defaultClient?.id,
@@ -156,10 +156,7 @@ export default function ClientPortal() {
 
       setQuickBody('');
       setQuickSubject('Dúvida pelo portal do cliente');
-      setQuickFeedback(result.persisted
-        ? 'Dúvida enviada ao assessor e registrada no Supabase.'
-        : 'Dúvida salva localmente. O follow-up do assessor também foi criado.'
-      );
+      setQuickFeedback('Dúvida enviada ao assessor. Um retorno foi criado para acompanhamento.');
       await refreshMessages();
     } finally {
       setQuickSending(false);
@@ -289,7 +286,6 @@ export default function ClientPortal() {
               <article key={message.id} className="rounded-2xl border border-slate-700/40 bg-slate-950/50 p-4">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{topicLabels[message.topic] || message.topic}</span>
-                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">{message.synced ? 'Supabase' : 'Local'}</span>
                 </div>
                 <h3 className="font-bold text-white">{message.subject}</h3>
                 <p className="text-xs text-slate-500 mt-1">{message.senderName} · {formatDate(message.createdAt)}</p>
