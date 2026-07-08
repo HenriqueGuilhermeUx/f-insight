@@ -9,6 +9,7 @@ import {
   Building2,
   Calculator,
   ClipboardList,
+  CreditCard,
   Database,
   FileText,
   MessageCircle,
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
     { label: 'Atualizações', value: updateStats.active, icon: Bell, href: '/admin/atualizacoes' },
     { label: 'Ações pendentes', value: followStats.open, icon: ClipboardList, href: '/admin/acompanhamentos' },
     { label: 'Comunicação', value: 'ON', icon: MessageCircle, href: '/contato' },
+    { label: 'Cobrança', value: 'Pix', icon: CreditCard, href: '/admin/cobranca' },
     { label: 'Dados ao vivo', value: 'ON', icon: Database, href: '/admin/status-dados' },
   ];
 
@@ -111,6 +113,10 @@ export default function AdminDashboard() {
               <span className="text-slate-200 font-semibold">Abrir comunicação assessor-cliente</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
+            <Link to="/admin/cobranca" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Gerar cobrança Pix do escritório</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
             <Link to="/admin/atualizacoes" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Programar atualizações automáticas</span>
               <Plus className="w-4 h-4 text-primary" />
@@ -149,6 +155,7 @@ export default function AdminDashboard() {
               'Fábrica editorial F-Insight com rascunhos e agendamento',
               'Central de atualizações programadas',
               'Comunicação assessor-cliente com histórico registrado',
+              'Cobrança Pix para assinatura do escritório',
               'Operação de dados ao vivo automatizada',
               'Cockpit de relacionamento do assessor',
               'IA financeira por perfil com guardrails comerciais',
