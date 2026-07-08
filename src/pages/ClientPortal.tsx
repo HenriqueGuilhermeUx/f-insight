@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   BookOpen,
@@ -9,6 +12,7 @@ import {
   HelpCircle,
   Lock,
   MessageCircle,
+  Reply,
   Shield,
   Sparkles,
   Target,
@@ -18,6 +22,11 @@ import { useTenant } from '@/context/TenantContext';
 import { useAuth } from '@/context/AuthContext';
 import { Layout } from '@/components/layout/Layout';
 import { getWorkspaceStats } from '@/services/workspace';
+import {
+  loadAdvisorClientMessages,
+  topicLabels,
+  type AdvisorClientMessage,
+} from '@/services/advisorClientMessages';
 
 const weeklyThemes = [
   {
@@ -88,10 +97,26 @@ function categoryLabel(category: string) {
   return labels[category] || category;
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('pt-BR');
+}
+
 export default function ClientPortal() {
   const { tenant, buildReportParams } = useTenant();
   const { user } = useAuth();
   const stats = getWorkspaceStats();
+  const [messages, setMessages] = useState<AdvisorClientMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    loadAdvisorClientMessages({ limit: 5 }).then((data) => {
+      if (mounted) setMessages(data);
+    }).finally(() => {
+      if (mounted) setMessagesLoading(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const reports = stats.reports
     .filter((report) => report.visibility === 'cliente')
@@ -131,7 +156,7 @@ export default function ClientPortal() {
               {user?.fullName ? `${user.fullName}, inteligência de mercado para decidir melhor.` : 'Inteligência de mercado para você decidir melhor com seu assessor.'}
             </h1>
             <p className="text-slate-300 text-lg leading-relaxed">
-              Este portal não substitui sua corretora nem mostra seus investimentos reais. Ele organiza mercado, conceitos, relatórios e perguntas úteis para você chegar mais preparado às conversas importantes.
+              Este portal não substitui sua corretora nem mostra seus investimentos reais. Ele organiza mercado, conceitos, relatórios, mensagens do assessor e perguntas úteis para você chegar mais preparado às conversas importantes.
             </p>
           </div>
 
@@ -148,9 +173,13 @@ export default function ClientPortal() {
                 <p className="font-bold text-white">Educação + relatórios</p>
               </div>
               <div className="rounded-xl bg-slate-900/80 p-3 border border-slate-700/40">
-                <p className="text-xs text-slate-500">Objetivo</p>
-                <p className="font-bold text-white">Clareza antes da decisão</p>
+                <p className="text-xs text-slate-500">Comunicação</p>
+                <p className="font-bold text-white">{messages.length || 0} mensagens recentes</p>
               </div>
+              <Link to="/contato" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                <MessageCircle className="w-4 h-4" />
+                Falar com o assessor
+              </Link>
             </div>
           </div>
         </div>
@@ -166,7 +195,7 @@ export default function ClientPortal() {
         ))}
       </section>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-6">
         <section className="rounded-3xl border border-slate-700/40 bg-slate-800/40 p-5 lg:p-6">
           <div className="flex items-start justify-between gap-4 mb-5">
             <div>
@@ -204,19 +233,40 @@ export default function ClientPortal() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-700/40 bg-slate-800/40 p-5 lg:p-6">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-2">
-            <Sparkles className="w-6 h-6 text-amber-400" />
-            O que isso significa?
-          </h2>
-          <p className="text-slate-400 mb-5">Sinais técnicos traduzidos em linguagem simples para apoiar sua conversa com o assessor.</p>
+        <section className="rounded-3xl border border-primary/20 bg-primary/10 p-5 lg:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <MessageCircle className="w-6 h-6 text-primary" />
+                Mensagens do assessor
+              </h2>
+              <p className="text-slate-300/80 mt-1">Últimas orientações, comentários e pautas registradas no portal.</p>
+            </div>
+            <Link to="/contato" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white border border-slate-700/50 hover:border-primary/50 transition-colors">
+              <Reply className="w-4 h-4" />
+              Responder
+            </Link>
+          </div>
 
           <div className="space-y-3">
-            {plainLanguageSignals.map((signal) => (
-              <div key={signal.title} className="rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4">
-                <h3 className="font-bold text-white mb-2">{signal.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{signal.text}</p>
+            {messagesLoading ? (
+              Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-24 rounded-2xl bg-slate-950/40 skeleton" />)
+            ) : messages.length === 0 ? (
+              <div className="rounded-2xl border border-slate-700/40 bg-slate-950/50 p-5 text-center">
+                <MessageCircle className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                <p className="font-bold text-white">Nenhuma mensagem ainda.</p>
+                <p className="text-sm text-slate-400 mt-1">Quando o assessor enviar uma atualização, ela aparecerá aqui.</p>
               </div>
+            ) : messages.slice(0, 4).map((message) => (
+              <article key={message.id} className="rounded-2xl border border-slate-700/40 bg-slate-950/50 p-4">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{topicLabels[message.topic] || message.topic}</span>
+                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">{message.synced ? 'Supabase' : 'Local'}</span>
+                </div>
+                <h3 className="font-bold text-white">{message.subject}</h3>
+                <p className="text-xs text-slate-500 mt-1">{message.senderName} · {formatDate(message.createdAt)}</p>
+                <p className="text-sm text-slate-300 leading-relaxed mt-3 line-clamp-3">{message.body}</p>
+              </article>
             ))}
           </div>
         </section>
@@ -271,7 +321,7 @@ export default function ClientPortal() {
         <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
           <Target className="w-6 h-6 text-emerald-400 mb-3" />
           <h3 className="font-bold text-white mb-2">Curadoria do assessor</h3>
-          <p className="text-sm text-slate-400 leading-relaxed">O escritório escolhe temas, relatórios e perguntas relevantes para cada perfil educacional.</p>
+          <p className="text-sm text-slate-400 leading-relaxed">O escritório escolhe temas, relatórios, mensagens e perguntas relevantes para cada perfil educacional.</p>
         </div>
         <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
           <Shield className="w-6 h-6 text-amber-400 mb-3" />
@@ -288,10 +338,11 @@ export default function ClientPortal() {
           </h2>
           <p className="text-slate-400 mt-1">Sugestão de pauta: revisar cenário macro, relatórios liberados e dúvidas conceituais antes de qualquer decisão.</p>
         </div>
-        <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950/70 px-5 py-3 text-sm font-bold text-white border border-slate-700/50 hover:border-primary/50 transition-colors">
+        <Link to="/contato" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950/70 px-5 py-3 text-sm font-bold text-white border border-slate-700/50 hover:border-primary/50 transition-colors">
           <MessageCircle className="w-4 h-4" />
           Falar com o assessor
-        </button>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </section>
 
       <section className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
