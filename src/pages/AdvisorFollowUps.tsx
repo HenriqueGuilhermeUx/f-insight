@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  MessageCircle,
   Plus,
   RefreshCcw,
   Send,
@@ -117,7 +116,7 @@ export default function AdvisorFollowUps() {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-4">
               <Target className="w-3.5 h-3.5" />
-              Cockpit de follow-up
+              Cockpit de relacionamento
             </span>
             <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">Clientes que precisam de ação agora.</h1>
             <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
@@ -126,7 +125,7 @@ export default function AdvisorFollowUps() {
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 min-w-[280px]">
             <Bot className="w-6 h-6 text-emerald-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">Motor assistivo</h3>
+            <h3 className="font-bold text-white mb-2">Próxima melhor ação</h3>
             <p className="text-sm text-slate-300 leading-relaxed">Sugere ação e texto de abordagem, sem recomendação automática de investimento.</p>
           </div>
         </div>
@@ -158,7 +157,7 @@ export default function AdvisorFollowUps() {
       <div className="grid grid-cols-1 xl:grid-cols-[430px_1fr] gap-6">
         <form onSubmit={submit} className="rounded-3xl border border-slate-700/40 bg-slate-800/40 p-5 lg:p-6 h-fit">
           <h2 className="text-2xl font-bold text-white mb-1">Nova ação</h2>
-          <p className="text-slate-400 mb-5">Crie um follow-up com texto de abordagem pronto.</p>
+          <p className="text-slate-400 mb-5">Crie um próximo passo com texto de abordagem pronto.</p>
 
           <div className="space-y-4">
             <label className="block">
@@ -209,13 +208,13 @@ export default function AdvisorFollowUps() {
             {saved && (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Follow-up criado e sincronizado.
+                Ação criada com sucesso.
               </div>
             )}
 
             <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
               <Plus className="w-4 h-4" />
-              Criar follow-up
+              Criar ação
             </button>
           </div>
         </form>
@@ -232,7 +231,7 @@ export default function AdvisorFollowUps() {
             <div className="flex flex-col sm:flex-row gap-2">
               <button onClick={reloadRemote} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white hover:border-primary/50 transition-colors">
                 <RefreshCcw className="w-4 h-4" />
-                {loadingRemote ? 'Sincronizando...' : 'Sincronizar'}
+                {loadingRemote ? 'Atualizando...' : 'Atualizar fila'}
               </button>
               <button onClick={regenerate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white hover:border-primary/50 transition-colors">
                 <RefreshCcw className="w-4 h-4" />
@@ -249,7 +248,6 @@ export default function AdvisorFollowUps() {
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{getReasonLabel(item.reason)}</span>
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${priorityClasses[item.priority]}`}>Prioridade {item.priority}</span>
-                      <span className="inline-flex rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">{item.synced ? 'Supabase' : 'Local'}</span>
                     </div>
                     <h3 className="font-bold text-white mb-1">{item.title}</h3>
                     <p className="text-sm text-slate-400 mb-2">{item.clientName} · perfil {item.clientProfile}</p>
