@@ -27,6 +27,11 @@ export const API_ENDPOINTS = {
     refreshIndicators: `${API_URL}/api/live/refresh/indicators`,
     refreshMacro: `${API_URL}/api/live/refresh/macro`
   },
+  billing: {
+    plans: `${API_URL}/api/billing/plans`,
+    checkout: `${API_URL}/api/billing/checkout`,
+    invoice: (correlationId: string) => `${API_URL}/api/billing/invoice/${correlationId}`
+  },
   macro: {
     overview: `${API_URL}/api/macro/overview`,
     refresh: `${API_URL}/api/macro/refresh`
