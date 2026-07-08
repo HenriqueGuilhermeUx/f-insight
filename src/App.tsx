@@ -27,6 +27,7 @@ import FinancialCopilot from './pages/FinancialCopilot';
 import ContactCenter from './pages/ContactCenter';
 import ScheduledUpdates from './pages/ScheduledUpdates';
 import DataOperations from './pages/DataOperations';
+import Billing from './pages/Billing';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
 
@@ -49,6 +50,7 @@ function App() {
             <Route path="/convite/:token" element={<InvitePage />} />
             <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
+            <Route path="/admin/cobranca" element={<ProtectedRoute roles={['admin']}><Billing /></ProtectedRoute>} />
             <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
             <Route path="/admin/status-dados" element={<ProtectedRoute roles={['admin', 'advisor']}><DataOperations /></ProtectedRoute>} />
             <Route path="/assessor/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
