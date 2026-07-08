@@ -7,12 +7,14 @@ import {
   BarChart3,
   BookOpen,
   CalendarDays,
+  CheckCircle2,
   Download,
   FileText,
   HelpCircle,
   Lock,
   MessageCircle,
   Reply,
+  Send,
   Shield,
   Sparkles,
   Target,
@@ -24,6 +26,7 @@ import { Layout } from '@/components/layout/Layout';
 import { getWorkspaceStats } from '@/services/workspace';
 import {
   loadAdvisorClientMessages,
+  sendAdvisorClientMessage,
   topicLabels,
   type AdvisorClientMessage,
 } from '@/services/advisorClientMessages';
@@ -55,21 +58,6 @@ const fallbackReports = [
   { ticker: 'PETR4', title: 'Como ler um relatório de valuation', summary: 'Valor intrínseco e margem de segurança' },
   { ticker: 'VALE3', title: 'Dólar, commodities e empresas exportadoras', summary: 'Cenário macro e sensibilidade cambial' },
   { ticker: 'ITUB4', title: 'Bancos, juros e qualidade de resultado', summary: 'ROE, crédito e dividendos' },
-];
-
-const plainLanguageSignals = [
-  {
-    title: 'Juros altos pedem mais disciplina',
-    text: 'Quando os juros estão altos, o investidor compara qualquer ativo com alternativas de menor risco. Por isso, preço pago, qualidade e geração de caixa ficam ainda mais importantes.',
-  },
-  {
-    title: 'Dólar mexe com setores diferentes de formas diferentes',
-    text: 'Empresas exportadoras podem se beneficiar de um dólar mais alto, mas empresas com dívida em dólar ou custos importados podem sentir pressão.',
-  },
-  {
-    title: 'Inflação muda a conversa sobre consumo e margens',
-    text: 'Inflação persistente pode reduzir poder de compra e pressionar custos. Empresas com poder de repasse tendem a atravessar melhor esses períodos.',
-  },
 ];
 
 const fallbackTracks = [
@@ -105,8 +93,19 @@ export default function ClientPortal() {
   const { tenant, buildReportParams } = useTenant();
   const { user } = useAuth();
   const stats = getWorkspaceStats();
+  const defaultClient = stats.clients[0];
+  const advisor = stats.advisors[0];
   const [messages, setMessages] = useState<AdvisorClientMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
+  const [quickSubject, setQuickSubject] = useState('Dúvida pelo portal do cliente');
+  const [quickBody, setQuickBody] = useState('');
+  const [quickSending, setQuickSending] = useState(false);
+  const [quickFeedback, setQuickFeedback] = useState('');
+
+  async function refreshMessages() {
+    const data = await loadAdvisorClientMessages({ limit: 5 });
+    setMessages(data);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -136,6 +135,35 @@ export default function ClientPortal() {
     const normalizedTicker = ticker === 'MACRO' ? 'PETR4' : ticker;
     const url = `${API_ENDPOINTS.reports.valuation(normalizedTicker)}?${params.toString()}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const sendQuickReply = async () => {
+    if (!quickBody.trim()) return;
+    setQuickSending(true);
+    setQuickFeedback('');
+    try {
+      const result = await sendAdvisorClientMessage({
+        tenantId: stats.tenant?.id,
+        advisorId: advisor?.id,
+        clientId: defaultClient?.id,
+        clientName: user?.fullName || defaultClient?.name || 'Cliente Final Demo',
+        senderRole: 'client',
+        senderName: user?.fullName || defaultClient?.name || 'Cliente Final Demo',
+        subject: quickSubject.trim() || 'Dúvida pelo portal do cliente',
+        body: quickBody,
+        topic: 'question',
+      });
+
+      setQuickBody('');
+      setQuickSubject('Dúvida pelo portal do cliente');
+      setQuickFeedback(result.persisted
+        ? 'Dúvida enviada ao assessor e registrada no Supabase.'
+        : 'Dúvida salva localmente. O follow-up do assessor também foi criado.'
+      );
+      await refreshMessages();
+    } finally {
+      setQuickSending(false);
+    }
   };
 
   return (
@@ -244,7 +272,7 @@ export default function ClientPortal() {
             </div>
             <Link to="/contato" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950/70 px-4 py-2.5 text-sm font-bold text-white border border-slate-700/50 hover:border-primary/50 transition-colors">
               <Reply className="w-4 h-4" />
-              Responder
+              Histórico
             </Link>
           </div>
 
@@ -268,6 +296,41 @@ export default function ClientPortal() {
                 <p className="text-sm text-slate-300 leading-relaxed mt-3 line-clamp-3">{message.body}</p>
               </article>
             ))}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-slate-700/40 bg-slate-950/60 p-4">
+            <h3 className="font-bold text-white flex items-center gap-2 mb-3">
+              <Reply className="w-4 h-4 text-primary" />
+              Enviar dúvida rápida
+            </h3>
+            <input
+              value={quickSubject}
+              onChange={(event) => setQuickSubject(event.target.value)}
+              className="mb-3 w-full rounded-xl border border-slate-700/50 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary/50"
+              placeholder="Assunto da dúvida"
+            />
+            <textarea
+              value={quickBody}
+              onChange={(event) => setQuickBody(event.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-slate-700/50 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary/50"
+              placeholder="Escreva sua dúvida para o assessor..."
+            />
+            <button
+              type="button"
+              onClick={sendQuickReply}
+              disabled={!quickBody.trim() || quickSending}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="w-4 h-4" />
+              {quickSending ? 'Enviando...' : 'Enviar dúvida ao assessor'}
+            </button>
+            {quickFeedback && (
+              <p className="mt-3 flex items-center gap-2 text-sm text-emerald-300">
+                <CheckCircle2 className="w-4 h-4" />
+                {quickFeedback}
+              </p>
+            )}
           </div>
         </section>
       </div>
