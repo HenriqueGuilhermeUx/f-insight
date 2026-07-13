@@ -4,25 +4,20 @@ import {
   Home,
   Search,
   TrendingUp,
-  Bell,
-  Bookmark,
-  Newspaper,
-  BarChart3,
-  Settings,
   Menu,
   X,
-  Activity,
-  Star,
   Users,
   Briefcase,
   Building2,
   LogIn,
   LogOut,
-  Bot,
   CalendarDays,
   ClipboardList,
   MessageCircle,
-  Sparkles,
+  CreditCard,
+  PlayCircle,
+  DollarSign,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -33,38 +28,43 @@ interface NavItem {
   label: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
-  badge?: number;
+  roles?: Array<'admin' | 'advisor' | 'client'>;
+  public?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Início', href: '/', icon: Home },
-  { label: 'Admin', href: '/admin', icon: Building2 },
-  { label: 'Assessor', href: '/assessor', icon: Briefcase },
-  { label: 'Cliente', href: '/cliente', icon: Users },
-  { label: 'IA', href: '/ia-financeira', icon: Bot },
-  { label: 'Insights', href: '/insights', icon: Sparkles },
-  { label: 'Comunicação', href: '/contato', icon: MessageCircle },
-  { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays },
-  { label: 'Acompanhamentos', href: '/admin/acompanhamentos', icon: ClipboardList },
-  { label: 'Macro', href: '/macro', icon: Activity },
-  { label: 'Radar', href: '/radar', icon: Search },
-  { label: 'Análises', href: '/analises', icon: BarChart3 },
-  { label: 'Notícias', href: '/noticias', icon: Newspaper },
-  { label: 'Watchlist', href: '/watchlist', icon: Bookmark },
-  { label: 'Alertas', href: '/alertas', icon: Bell },
-  { label: 'Marca', href: '/white-label', icon: Settings },
+  { label: 'Início', href: '/', icon: Home, public: true },
+  { label: 'Preços', href: '/precos', icon: DollarSign, public: true },
+  { label: 'Demo', href: '/demo', icon: PlayCircle, public: true },
+  { label: 'Radar', href: '/radar', icon: Search, public: true },
+  { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
+  { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
+  { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
+  { label: 'Assessor', href: '/assessor', icon: Briefcase, roles: ['admin', 'advisor'] },
+  { label: 'Cliente', href: '/cliente', icon: Users, roles: ['admin', 'advisor', 'client'] },
+  { label: 'Comunicação', href: '/contato', icon: MessageCircle, roles: ['admin', 'advisor', 'client'] },
+  { label: 'Relacionamento', href: '/admin/acompanhamentos', icon: ClipboardList, roles: ['admin', 'advisor'] },
+  { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays, roles: ['admin', 'advisor'] },
 ];
 
 interface LayoutProps {
   children: ReactNode;
 }
 
+function roleLabel(role: string) {
+  if (role === 'client') return 'Cliente';
+  if (role === 'advisor') return 'Assessor';
+  return 'Admin';
+}
+
 export function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { theme, watchlist } = useAppStore();
+  const { theme } = useAppStore();
   const { tenant } = useTenant();
   const { user, logout } = useAuth();
+
+  const visibleNav = navItems.filter((item) => item.public || (user && item.roles?.includes(user.role)));
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -91,7 +91,7 @@ export function Layout({ children }: LayoutProps) {
               <div className="hidden sm:flex items-center min-w-0">
                 <h1
                   className={cn(
-                    'text-lg md:text-xl font-bold gradient-text leading-tight truncate max-w-[140px] md:max-w-[180px] xl:max-w-[240px]',
+                    'text-lg md:text-xl font-bold gradient-text leading-tight truncate max-w-[150px] md:max-w-[220px]',
                     theme === 'light' && 'text-slate-900'
                   )}
                 >
@@ -100,8 +100,8 @@ export function Layout({ children }: LayoutProps) {
               </div>
             </Link>
 
-            <nav className="hidden 2xl:flex items-center gap-1 overflow-x-auto max-w-[58vw]">
-              {navItems.map((item) => {
+            <nav className="hidden xl:flex items-center gap-1 overflow-x-auto max-w-[58vw]">
+              {visibleNav.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
                 return (
@@ -117,11 +117,6 @@ export function Layout({ children }: LayoutProps) {
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
-                    {item.badge && (
-                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}
@@ -129,32 +124,11 @@ export function Layout({ children }: LayoutProps) {
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <Link
-                to="/admin"
-                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
-              >
-                <Building2 className="w-4 h-4" />
-                Admin
-              </Link>
-              <Link
-                to="/assessor"
-                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 text-slate-200 border border-slate-700/50 text-sm hover:border-primary/40 transition-colors"
-              >
-                <Briefcase className="w-4 h-4" />
-                Assessor
-              </Link>
-              <Link
-                to="/ia-financeira"
+                to="/demo"
                 className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
               >
-                <Bot className="w-4 h-4" />
-                IA
-              </Link>
-              <Link
-                to="/cliente"
-                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
-              >
-                <Users className="w-4 h-4" />
-                Cliente
+                <PlayCircle className="w-4 h-4" />
+                Demo
               </Link>
 
               {user ? (
@@ -164,7 +138,7 @@ export function Layout({ children }: LayoutProps) {
                   title={user.email}
                 >
                   <LogOut className="w-4 h-4" />
-                  {user.isDemo ? 'Demo' : user.role}
+                  {user.isDemo ? `Demo ${roleLabel(user.role)}` : roleLabel(user.role)}
                 </button>
               ) : (
                 <Link
@@ -176,18 +150,9 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               )}
 
-              <Link to="/watchlist" className="relative p-2 rounded-lg hover:bg-slate-800/50 transition-colors">
-                <Star className="w-5 h-5 text-amber-400" />
-                {watchlist.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black text-xs font-bold rounded-full flex items-center justify-center">
-                    {watchlist.length}
-                  </span>
-                )}
-              </Link>
-
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="2xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                className="xl:hidden p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
               >
                 {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -197,16 +162,16 @@ export function Layout({ children }: LayoutProps) {
       </header>
 
       {isMobileMenuOpen && (
-        <div className="2xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
+        <div className="xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20 overflow-y-auto max-h-screen">
             <Link
-              to="/login"
+              to={user ? '/demo' : '/login'}
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium text-emerald-400 bg-emerald-500/10 mb-2"
             >
               <LogIn className="w-6 h-6" />
-              {user ? `Sessão: ${user.role}` : 'Login'}
+              {user ? `Sessão: ${roleLabel(user.role)}` : 'Login'}
             </Link>
-            {navItems.map((item) => {
+            {visibleNav.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
               return (
@@ -244,15 +209,18 @@ export function Layout({ children }: LayoutProps) {
                 © 2026 {tenant.brandName}. Powered by F-Insight White Label.
               </span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-slate-500">
-              <Link to="/privacidade" className="hover:text-slate-300 transition-colors">
-                Privacidade
+            <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
+              <Link to="/precos" className="hover:text-slate-300 transition-colors">
+                Preços
+              </Link>
+              <Link to="/demo" className="hover:text-slate-300 transition-colors">
+                Demo
               </Link>
               <Link to="/termos" className="hover:text-slate-300 transition-colors">
                 Termos
               </Link>
-              <Link to="/contato" className="hover:text-slate-300 transition-colors">
-                Comunicação
+              <Link to="/privacidade" className="hover:text-slate-300 transition-colors">
+                Privacidade
               </Link>
             </div>
           </div>
