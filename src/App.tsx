@@ -4,6 +4,10 @@ import { TenantProvider } from './context/TenantContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Home from './pages/Home';
+import Pricing from './pages/Pricing';
+import DemoExperience from './pages/DemoExperience';
+import LegalTerms from './pages/LegalTerms';
+import OfficeOnboarding from './pages/OfficeOnboarding';
 import Radar from './pages/Radar';
 import AssetDetails from './pages/AssetDetails';
 import Watchlist from './pages/Watchlist';
@@ -38,6 +42,12 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/precos" element={<Pricing />} />
+            <Route path="/demo" element={<DemoExperience />} />
+            <Route path="/termos" element={<LegalTerms />} />
+            <Route path="/privacidade" element={<LegalTerms />} />
+            <Route path="/aviso-educacional" element={<LegalTerms />} />
+            <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/radar" element={<Radar />} />
             <Route path="/ativo/:ticker" element={<AssetDetails />} />
@@ -50,6 +60,7 @@ function App() {
             <Route path="/convite/:token" element={<InvitePage />} />
             <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
+            <Route path="/admin/onboarding" element={<ProtectedRoute roles={['admin']}><OfficeOnboarding /></ProtectedRoute>} />
             <Route path="/admin/cobranca" element={<ProtectedRoute roles={['admin']}><Billing /></ProtectedRoute>} />
             <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
             <Route path="/admin/status-dados" element={<ProtectedRoute roles={['admin', 'advisor']}><DataOperations /></ProtectedRoute>} />
