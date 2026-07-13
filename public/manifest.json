@@ -1,10 +1,11 @@
 {
-  "name": "F-Insight - Plataforma de Análise Financeira",
+  "name": "F-Insight Client App",
   "short_name": "F-Insight",
-  "description": "Plataforma completa de análise financeira com radar de ativos, gráficos em tempo real, Graham picks e muito mais.",
-  "start_url": "/",
+  "description": "App do cliente final para mensagens do assessor, relatórios liberados, dúvidas rápidas e conteúdos educativos.",
+  "start_url": "/app",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#020617",
   "theme_color": "#0ea5e9",
   "orientation": "portrait-primary",
   "icons": [
@@ -21,21 +22,28 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["finance", "business", "utilities"],
+  "categories": ["finance", "business", "education"],
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Radar de Ativos",
-      "short_name": "Radar",
-      "description": "Buscar e filtrar ativos",
-      "url": "/radar",
+      "name": "App do Cliente",
+      "short_name": "Cliente",
+      "description": "Abrir a experiência mobile do cliente",
+      "url": "/app",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Minha Watchlist",
-      "short_name": "Watchlist",
-      "description": "Acompanhar ativos favoritos",
-      "url": "/watchlist",
+      "name": "Mensagens",
+      "short_name": "Mensagens",
+      "description": "Ver e responder mensagens do assessor",
+      "url": "/contato",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Relatórios",
+      "short_name": "Relatórios",
+      "description": "Acessar relatórios liberados",
+      "url": "/cliente#relatorios",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
