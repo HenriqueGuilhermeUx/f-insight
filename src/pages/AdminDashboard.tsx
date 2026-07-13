@@ -32,6 +32,7 @@ export default function AdminDashboard() {
     { label: 'Clientes finais', value: stats.clients.length, icon: Users, href: '/admin/clientes' },
     { label: 'Relatórios publicados', value: stats.publishedReports, icon: FileText, href: '/admin/relatorios' },
     { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/admin/conteudos' },
+    { label: 'Implantação', value: '4 passos', icon: Shield, href: '/admin/onboarding' },
     { label: 'Ferramentas de análise', value: 4, icon: Calculator, href: '/admin/insights' },
     { label: 'Fábrica editorial', value: 3, icon: Bot, href: '/admin/fabrica-conteudo' },
     { label: 'IA financeira', value: 6, icon: Bot, href: '/admin/ia-financeira' },
@@ -89,6 +90,10 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold text-white mb-2">Próximas ações</h2>
           <p className="text-slate-400 mb-5">Fluxo mínimo para vender e operar o produto.</p>
           <div className="space-y-3">
+            <Link to="/admin/onboarding" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Abrir checklist de implantação</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
             <Link to="/admin/assessores" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Cadastrar assessores do escritório</span>
               <Plus className="w-4 h-4 text-primary" />
@@ -156,6 +161,7 @@ export default function AdminDashboard() {
               'Central de atualizações programadas',
               'Comunicação assessor-cliente com histórico registrado',
               'Cobrança Pix para assinatura do escritório',
+              'Checklist de implantação do escritório',
               'Operação de dados ao vivo automatizada',
               'Cockpit de relacionamento do assessor',
               'IA financeira por perfil com guardrails comerciais',
