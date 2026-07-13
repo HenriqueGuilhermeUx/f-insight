@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
   { label: 'Assessor', href: '/assessor', icon: Briefcase, roles: ['admin', 'advisor'] },
-  { label: 'Cliente', href: '/cliente', icon: Users, roles: ['admin', 'advisor', 'client'] },
+  { label: 'App Cliente', href: '/app', icon: Users, roles: ['admin', 'advisor', 'client'] },
   { label: 'Comunicação', href: '/contato', icon: MessageCircle, roles: ['admin', 'advisor', 'client'] },
   { label: 'Relacionamento', href: '/admin/acompanhamentos', icon: ClipboardList, roles: ['admin', 'advisor'] },
   { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays, roles: ['admin', 'advisor'] },
