@@ -23,10 +23,10 @@ const demos: Array<{ role: AuthRole; title: string; subtitle: string; icon: type
   {
     role: 'client',
     title: 'Ver como cliente',
-    subtitle: 'Portal educativo com relatórios, mensagens e dúvidas rápidas.',
+    subtitle: 'App mobile educativo com mensagens, relatórios, dúvidas rápidas e pauta de reunião.',
     icon: Users,
-    route: '/cliente',
-    bullets: ['Relatórios liberados', 'Mensagens do assessor', 'Dúvida rápida', 'Pauta da próxima reunião'],
+    route: '/app',
+    bullets: ['App instalável', 'Mensagens do assessor', 'Dúvida rápida', 'Relatórios liberados'],
   },
 ];
 
@@ -81,7 +81,7 @@ export default function DemoExperience() {
         <div>
           <h2 className="font-bold text-white mb-2">Script sugerido para venda</h2>
           <p className="text-slate-300 leading-relaxed">
-            “Primeiro eu mostro como o escritório opera a plataforma, depois como o assessor ganha produtividade e por último como o cliente final percebe valor sem ver saldo, custódia ou carteira real.”
+            “Primeiro eu mostro como o escritório opera a plataforma, depois como o assessor ganha produtividade e por último abro o app do cliente para mostrar a experiência que gera percepção de valor.”
           </p>
         </div>
       </section>
