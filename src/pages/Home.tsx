@@ -31,13 +31,14 @@ const personas = [
   {
     title: 'Cliente',
     icon: Users,
-    href: '/cliente',
-    text: 'Área educacional com relatórios liberados, mensagens do assessor, dúvidas rápidas e pauta para reunião.',
+    href: '/app',
+    text: 'App mobile simples com mensagens do assessor, relatórios liberados, dúvidas rápidas e pauta para reunião.',
   },
 ];
 
 const modules = [
   'Portal white-label do escritório',
+  'App mobile do cliente final',
   'Radar e dados de mercado ao vivo',
   'Relatórios e conteúdos educativos',
   'Comunicação assessor-cliente',
@@ -66,15 +67,15 @@ export default function Home() {
               Inteligência, conteúdo e relacionamento digital com a marca do seu escritório.
             </h1>
             <p className="text-lg text-slate-300 leading-relaxed max-w-4xl mb-7">
-              O F-Insight ajuda escritórios a entregar relatórios, radar de mercado, mensagens, conteúdos educativos e próximas ações para clientes finais — sem expor saldo, custódia ou carteira real.
+              O F-Insight ajuda escritórios a entregar relatórios, radar de mercado, mensagens, conteúdos educativos e um app simples para clientes finais — sem expor saldo, custódia ou carteira real.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link to="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
                 Ver demo guiada
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link to="/precos" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white hover:border-primary/50 transition-colors">
-                Ver planos
+              <Link to="/app" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white hover:border-primary/50 transition-colors">
+                Abrir app do cliente
               </Link>
             </div>
           </div>
@@ -131,10 +132,10 @@ export default function Home() {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
-        <Link to="/radar" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
-          <BarChart3 className="w-6 h-6 text-primary mb-3" />
-          <h3 className="font-bold text-white mb-2">Radar de mercado</h3>
-          <p className="text-sm text-slate-400">Dados, ativos e sinais para apoiar conversas.</p>
+        <Link to="/app" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
+          <BookOpen className="w-6 h-6 text-primary mb-3" />
+          <h3 className="font-bold text-white mb-2">App do cliente</h3>
+          <p className="text-sm text-slate-400">Mensagens, relatórios, dúvidas rápidas e pauta de reunião.</p>
         </Link>
         <Link to="/contato" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
           <MessageCircle className="w-6 h-6 text-primary mb-3" />
