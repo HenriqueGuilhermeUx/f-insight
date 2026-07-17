@@ -9,6 +9,7 @@ import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
 import ClientApp from './pages/ClientApp';
+import AutomationOps from './pages/AutomationOps';
 import Radar from './pages/Radar';
 import AssetDetails from './pages/AssetDetails';
 import Watchlist from './pages/Watchlist';
@@ -65,6 +66,7 @@ function App() {
             <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
             <Route path="/admin/onboarding" element={<ProtectedRoute roles={['admin']}><OfficeOnboarding /></ProtectedRoute>} />
             <Route path="/admin/cobranca" element={<ProtectedRoute roles={['admin']}><Billing /></ProtectedRoute>} />
+            <Route path="/admin/automacoes" element={<ProtectedRoute roles={['admin']}><AutomationOps /></ProtectedRoute>} />
             <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
             <Route path="/admin/status-dados" element={<ProtectedRoute roles={['admin', 'advisor']}><DataOperations /></ProtectedRoute>} />
             <Route path="/assessor/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
