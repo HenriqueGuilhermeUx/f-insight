@@ -16,6 +16,7 @@ import {
   Plus,
   Shield,
   Users,
+  Zap,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { getWorkspaceStats } from '@/services/workspace';
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
     { label: 'Relatórios publicados', value: stats.publishedReports, icon: FileText, href: '/admin/relatorios' },
     { label: 'Conteúdos educativos', value: stats.contents.length, icon: BookOpen, href: '/admin/conteudos' },
     { label: 'Implantação', value: '4 passos', icon: Shield, href: '/admin/onboarding' },
+    { label: 'Automações', value: 'n8n', icon: Zap, href: '/admin/automacoes' },
     { label: 'Ferramentas de análise', value: 4, icon: Calculator, href: '/admin/insights' },
     { label: 'Fábrica editorial', value: 3, icon: Bot, href: '/admin/fabrica-conteudo' },
     { label: 'IA financeira', value: 6, icon: Bot, href: '/admin/ia-financeira' },
@@ -92,6 +94,10 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             <Link to="/admin/onboarding" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
               <span className="text-slate-200 font-semibold">Abrir checklist de implantação</span>
+              <Plus className="w-4 h-4 text-primary" />
+            </Link>
+            <Link to="/admin/automacoes" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
+              <span className="text-slate-200 font-semibold">Conectar automações n8n</span>
               <Plus className="w-4 h-4 text-primary" />
             </Link>
             <Link to="/admin/assessores" className="flex items-center justify-between rounded-2xl bg-slate-950/50 border border-slate-700/40 p-4 hover:border-primary/40 transition-colors">
@@ -161,6 +167,7 @@ export default function AdminDashboard() {
               'Central de atualizações programadas',
               'Comunicação assessor-cliente com histórico registrado',
               'Cobrança Pix para assinatura do escritório',
+              'Base para automações n8n e Oracle Cloud',
               'Checklist de implantação do escritório',
               'Operação de dados ao vivo automatizada',
               'Cockpit de relacionamento do assessor',
