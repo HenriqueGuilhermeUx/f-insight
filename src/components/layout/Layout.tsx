@@ -18,6 +18,7 @@ import {
   PlayCircle,
   DollarSign,
   ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
+  { label: 'Automações', href: '/admin/automacoes', icon: Zap, roles: ['admin'] },
   { label: 'Assessor', href: '/assessor', icon: Briefcase, roles: ['admin', 'advisor'] },
   { label: 'App Cliente', href: '/app', icon: Users, roles: ['admin', 'advisor', 'client'] },
   { label: 'Comunicação', href: '/contato', icon: MessageCircle, roles: ['admin', 'advisor', 'client'] },
