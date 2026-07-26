@@ -7,6 +7,7 @@ import {
   Building2,
   CheckCircle2,
   CreditCard,
+  Globe2,
   MessageCircle,
   Shield,
   Sparkles,
@@ -17,16 +18,16 @@ import { Layout } from '@/components/layout/Layout';
 
 const personas = [
   {
+    title: 'Público geral',
+    icon: Globe2,
+    href: '/portal',
+    text: 'Portal aberto com radar público, conteúdos educativos e ferramentas simples mediante cadastro por e-mail.',
+  },
+  {
     title: 'Escritório',
     icon: Building2,
     href: '/admin',
     text: 'Portal com sua marca, clientes organizados, relatórios, conteúdo, cobrança e operação comercial em um só lugar.',
-  },
-  {
-    title: 'Assessor',
-    icon: Briefcase,
-    href: '/assessor',
-    text: 'Workspace para transformar mercado, relatórios e dúvidas em conversas registradas e próximas ações.',
   },
   {
     title: 'Cliente',
@@ -37,6 +38,7 @@ const personas = [
 ];
 
 const modules = [
+  'Portal público para aquisição de usuários e leads',
   'Portal white-label do escritório',
   'App mobile do cliente final',
   'Radar e dados de mercado ao vivo',
@@ -47,8 +49,8 @@ const modules = [
 ];
 
 const proofPoints = [
+  { label: 'Funil público', text: 'Qualquer pessoa pode entrar com e-mail, usar ferramentas e virar lead para conteúdo ou venda B2B.' },
   { label: 'Sem custódia', text: 'Não precisamos integrar saldo, extrato ou posição real para lançar.' },
-  { label: 'Mais relacionamento', text: 'O assessor ganha contexto, histórico e próxima ação após cada interação.' },
   { label: 'Mais percepção de valor', text: 'O cliente vê inteligência, conteúdo e curadoria com a marca do escritório.' },
 ];
 
@@ -61,27 +63,27 @@ export default function Home() {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary mb-5">
               <Sparkles className="w-3.5 h-3.5" />
-              Plataforma white-label para escritórios de investimento
+              Plataforma de inteligência financeira com funil público e white-label B2B
             </span>
             <h1 className="text-4xl lg:text-6xl font-black tracking-tight text-white mb-5 leading-tight">
-              Inteligência, conteúdo e relacionamento digital com a marca do seu escritório.
+              Do portal aberto ao app white-label do cliente final.
             </h1>
             <p className="text-lg text-slate-300 leading-relaxed max-w-4xl mb-7">
-              O F-Insight ajuda escritórios a entregar relatórios, radar de mercado, mensagens, conteúdos educativos e um app simples para clientes finais — sem expor saldo, custódia ou carteira real.
+              O F-Insight combina um portal público gratuito para atrair usuários com uma plataforma white-label para escritórios entregarem relatórios, radar de mercado, mensagens, conteúdos educativos e um app simples para clientes finais.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link to="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-                Ver demo guiada
+              <Link to="/portal" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                Abrir portal público
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link to="/app" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white hover:border-primary/50 transition-colors">
-                Abrir app do cliente
+              <Link to="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white hover:border-primary/50 transition-colors">
+                Ver demo white-label
               </Link>
             </div>
           </div>
 
           <div className="rounded-3xl border border-slate-700/40 bg-slate-950/60 p-5 lg:p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">O que o escritório ganha</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">O que a plataforma ganha</h2>
             <div className="space-y-3">
               {modules.map((item) => (
                 <div key={item} className="flex items-center gap-3 rounded-2xl border border-slate-700/40 bg-slate-900/70 p-3">
@@ -118,7 +120,7 @@ export default function Home() {
           <Shield className="w-7 h-7 text-emerald-400 mb-4" />
           <h2 className="text-3xl font-black text-white mb-3">Mais seguro para vender e implantar.</h2>
           <p className="text-slate-300 leading-relaxed">
-            A primeira versão é educacional e orientativa. O escritório entrega valor sem depender de integração com corretora, patrimônio, custódia, extrato ou recomendação automática.
+            A primeira versão é educacional e orientativa. O público aprende, o escritório captura valor e o cliente final recebe conteúdo sem depender de integração com corretora, patrimônio, custódia, extrato ou recomendação automática.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -132,6 +134,11 @@ export default function Home() {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
+        <Link to="/portal" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
+          <Globe2 className="w-6 h-6 text-primary mb-3" />
+          <h3 className="font-bold text-white mb-2">Portal público</h3>
+          <p className="text-sm text-slate-400">Cadastro por e-mail, radar, conteúdo e ferramentas educativas.</p>
+        </Link>
         <Link to="/app" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
           <BookOpen className="w-6 h-6 text-primary mb-3" />
           <h3 className="font-bold text-white mb-2">App do cliente</h3>
@@ -147,20 +154,15 @@ export default function Home() {
           <h3 className="font-bold text-white mb-2">Relacionamento</h3>
           <p className="text-sm text-slate-400">Próximas ações e textos prontos para o assessor.</p>
         </Link>
-        <Link to="/admin/cobranca" className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5 hover:border-primary/40 transition-colors">
-          <CreditCard className="w-6 h-6 text-primary mb-3" />
-          <h3 className="font-bold text-white mb-2">Cobrança Pix</h3>
-          <p className="text-sm text-slate-400">Planos B2B para ativação do escritório.</p>
-        </Link>
       </section>
 
       <section className="rounded-3xl border border-primary/20 bg-primary/10 p-6 lg:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         <div>
-          <h2 className="text-3xl font-black text-white mb-2">Pronto para piloto pago.</h2>
-          <p className="text-slate-300">Comece com poucos escritórios parceiros, white-label, suporte direto e cobrança mensal.</p>
+          <h2 className="text-3xl font-black text-white mb-2">Agora temos aquisição + produto pago.</h2>
+          <p className="text-slate-300">Use o portal público para gerar audiência e leads. Venda o white-label para escritórios.</p>
         </div>
-        <Link to="/onboarding" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-          Ver implantação
+        <Link to="/precos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+          Ver planos
           <ArrowRight className="w-4 h-4" />
         </Link>
       </section>
