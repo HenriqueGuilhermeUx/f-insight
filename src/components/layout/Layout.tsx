@@ -2,7 +2,6 @@ import { useState, useEffect, type ComponentType, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
-  Search,
   TrendingUp,
   Menu,
   X,
@@ -16,7 +15,6 @@ import {
   MessageCircle,
   CreditCard,
   PlayCircle,
-  DollarSign,
   ShieldCheck,
   Zap,
   Globe2,
@@ -37,9 +35,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home, public: true },
   { label: 'Portal', href: '/portal', icon: Globe2, public: true },
-  { label: 'Preços', href: '/precos', icon: DollarSign, public: true },
+  { label: 'Para escritórios', href: '/precos', icon: Building2, public: true },
   { label: 'Demo', href: '/demo', icon: PlayCircle, public: true },
-  { label: 'Radar', href: '/radar', icon: Search, public: true },
   { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
@@ -50,6 +47,8 @@ const navItems: NavItem[] = [
   { label: 'Relacionamento', href: '/admin/acompanhamentos', icon: ClipboardList, roles: ['admin', 'advisor'] },
   { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays, roles: ['admin', 'advisor'] },
 ];
+
+const publicBrandPaths = ['/', '/portal', '/precos', '/demo', '/login', '/termos', '/privacidade', '/aviso-educacional', '/onboarding', '/cadastro-escritorio'];
 
 interface LayoutProps {
   children: ReactNode;
@@ -68,6 +67,9 @@ export function Layout({ children }: LayoutProps) {
   const { tenant } = useTenant();
   const { user, logout } = useAuth();
 
+  const isPublicBrand = publicBrandPaths.includes(location.pathname);
+  const brandName = isPublicBrand ? 'F-Insight' : tenant.brandName || 'F-Insight';
+  const showTenantLogo = !isPublicBrand && Boolean(tenant.logoDataUrl);
   const visibleNav = navItems.filter((item) => item.public || (user && item.roles?.includes(user.role)));
 
   useEffect(() => {
@@ -86,8 +88,8 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center justify-between gap-4 h-16">
             <Link to="/" className="flex items-center gap-3 min-w-0 shrink-0 max-w-[55%] lg:max-w-none">
               <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden shrink-0">
-                {tenant.logoDataUrl ? (
-                  <img src={tenant.logoDataUrl} alt={tenant.brandName} className="w-full h-full object-contain p-1" />
+                {showTenantLogo ? (
+                  <img src={tenant.logoDataUrl} alt={brandName} className="w-full h-full object-contain p-1" />
                 ) : (
                   <TrendingUp className="w-5 h-5 text-white" />
                 )}
@@ -99,7 +101,7 @@ export function Layout({ children }: LayoutProps) {
                     theme === 'light' && 'text-slate-900'
                   )}
                 >
-                  {tenant.brandName || 'F-Insight'}
+                  {brandName}
                 </h1>
               </div>
             </Link>
@@ -203,14 +205,14 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center overflow-hidden">
-                {tenant.logoDataUrl ? (
-                  <img src={tenant.logoDataUrl} alt={tenant.brandName} className="w-full h-full object-contain p-1" />
+                {showTenantLogo ? (
+                  <img src={tenant.logoDataUrl} alt={brandName} className="w-full h-full object-contain p-1" />
                 ) : (
                   <TrendingUp className="w-4 h-4 text-white" />
                 )}
               </div>
               <span className="text-slate-400 text-sm">
-                © 2026 {tenant.brandName}. Powered by F-Insight White Label.
+                © 2026 {brandName}. Inteligência de mercado educativa.
               </span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
@@ -218,7 +220,7 @@ export function Layout({ children }: LayoutProps) {
                 Portal
               </Link>
               <Link to="/precos" className="hover:text-slate-300 transition-colors">
-                Preços
+                Para escritórios
               </Link>
               <Link to="/demo" className="hover:text-slate-300 transition-colors">
                 Demo
