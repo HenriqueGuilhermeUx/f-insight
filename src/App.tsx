@@ -8,6 +8,7 @@ import Pricing from './pages/Pricing';
 import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
+import PublicPortal from './pages/PublicPortal';
 import ClientApp from './pages/ClientApp';
 import AutomationOps from './pages/AutomationOps';
 import Radar from './pages/Radar';
@@ -44,6 +45,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/portal" element={<PublicPortal />} />
             <Route path="/precos" element={<Pricing />} />
             <Route path="/demo" element={<DemoExperience />} />
             <Route path="/termos" element={<LegalTerms />} />
