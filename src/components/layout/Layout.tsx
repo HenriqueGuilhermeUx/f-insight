@@ -19,6 +19,7 @@ import {
   DollarSign,
   ShieldCheck,
   Zap,
+  Globe2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -35,6 +36,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home, public: true },
+  { label: 'Portal', href: '/portal', icon: Globe2, public: true },
   { label: 'Preços', href: '/precos', icon: DollarSign, public: true },
   { label: 'Demo', href: '/demo', icon: PlayCircle, public: true },
   { label: 'Radar', href: '/radar', icon: Search, public: true },
@@ -212,6 +214,9 @@ export function Layout({ children }: LayoutProps) {
               </span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
+              <Link to="/portal" className="hover:text-slate-300 transition-colors">
+                Portal
+              </Link>
               <Link to="/precos" className="hover:text-slate-300 transition-colors">
                 Preços
               </Link>
