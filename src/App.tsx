@@ -53,7 +53,7 @@ function App() {
             <Route path="/aviso-educacional" element={<LegalTerms />} />
             <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ClientApp /></ProtectedRoute>} />
+            <Route path="/app" element={<ClientApp />} />
             <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ClientApp /></ProtectedRoute>} />
             <Route path="/radar" element={<Radar />} />
             <Route path="/ativo/:ticker" element={<AssetDetails />} />
