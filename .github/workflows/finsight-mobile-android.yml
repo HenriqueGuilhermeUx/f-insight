@@ -1,0 +1,83 @@
+name: F-Insight Mobile Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: "Which Android artifact to build"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - apk
+          - aab
+
+permissions:
+  contents: read
+
+env:
+  EXPO_PUBLIC_API_URL: https://f-insight-api.onrender.com
+  EXPO_PUBLIC_WEB_URL: https://f-insight.netlify.app
+
+jobs:
+  android-build:
+    name: Build Android APK/AAB
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --clean --non-interactive
+
+      - name: Build APK
+        if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Build AAB
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:bundleRelease --no-daemon
+
+      - name: Upload APK artifact
+        if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-android-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-android-aab
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
