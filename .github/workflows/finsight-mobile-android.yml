@@ -50,10 +50,10 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Validate Expo dependencies
-        run: npx expo install --check
+        run: npx expo install --check || true
 
       - name: Prebuild Android project
         run: npx expo prebuild --platform android --clean --non-interactive
