@@ -17,6 +17,7 @@ permissions:
   contents: read
 
 env:
+  CI: true
   NODE_ENV: production
   EXPO_PUBLIC_API_URL: https://f-insight-api.onrender.com
   EXPO_PUBLIC_WEB_URL: https://f-insight.netlify.app
@@ -56,7 +57,7 @@ jobs:
         run: npx expo install --check || true
 
       - name: Prebuild Android project
-        run: npx expo prebuild --platform android --clean --non-interactive
+        run: npx expo prebuild --platform android --clean
 
       - name: Build APK
         if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
