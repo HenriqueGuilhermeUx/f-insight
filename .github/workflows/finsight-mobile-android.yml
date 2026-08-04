@@ -17,6 +17,7 @@ permissions:
   contents: read
 
 env:
+  NODE_ENV: production
   EXPO_PUBLIC_API_URL: https://f-insight-api.onrender.com
   EXPO_PUBLIC_WEB_URL: https://f-insight.netlify.app
 
@@ -36,6 +37,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -47,7 +50,10 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Expo dependencies
+        run: npx expo install --check
 
       - name: Prebuild Android project
         run: npx expo prebuild --platform android --clean --non-interactive
