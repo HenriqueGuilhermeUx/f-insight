@@ -14,13 +14,11 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
-const extra = (Constants.expoConfig?.extra || {}) as { apiUrl?: string; webUrl?: string };
-const API_URL = extra.apiUrl || 'https://f-insight-api.onrender.com';
-const WEB_URL = extra.webUrl || 'https://f-insight.netlify.app';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://f-insight-api.onrender.com';
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://f-insight.netlify.app';
 
 type AppMode = 'public' | 'client' | 'advisor';
 type Section = 'today' | 'market' | 'watch' | 'tools' | 'profile';
@@ -120,7 +118,8 @@ function Card({ children, style }: { children: React.ReactNode; style?: StylePro
 }
 
 function Pill({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' | 'amber' | 'red' }) {
-  return <Text style={[styles.pill, styles[`pill_${tone}`]]}>{children}</Text>;
+  const toneStyle = tone === 'green' ? styles.pillGreen : tone === 'amber' ? styles.pillAmber : tone === 'red' ? styles.pillRed : styles.pillBlue;
+  return <Text style={[styles.pill, toneStyle]}>{children}</Text>;
 }
 
 function IconBox({ name, color = '#22d3ee' }: { name: keyof typeof Ionicons.glyphMap; color?: string }) {
@@ -227,7 +226,7 @@ export default function App() {
 
         <Card>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{marketMood.title}</Text>
               <Text style={styles.cardText}>{marketMood.text}</Text>
             </View>
@@ -455,7 +454,7 @@ export default function App() {
           </Pressable>
         </Card>
 
-        {(mode === 'advisor') ? (
+        {mode === 'advisor' ? (
           <Card>
             <Text style={styles.cardTitle}>Acesso profissional</Text>
             <Text style={styles.cardText}>Abra a plataforma web para comunicação, clientes, relatórios e relacionamento.</Text>
@@ -519,62 +518,62 @@ const styles = StyleSheet.create({
   heroTitle: { color: '#fff', fontSize: 31, lineHeight: 36, fontWeight: '900', maxWidth: 260 },
   heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 22, marginTop: 14, marginBottom: 14 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { overflow: 'hidden', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
-  pill_blue: { color: '#67e8f9', backgroundColor: '#083344' },
-  pill_green: { color: '#86efac', backgroundColor: '#052e16' },
-  pill_amber: { color: '#fcd34d', backgroundColor: '#451a03' },
-  pill_red: { color: '#fca5a5', backgroundColor: '#450a0a' },
-  card: { borderRadius: 24, padding: 16, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  pill: { borderRadius: 999, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  pillBlue: { backgroundColor: '#0e749022', color: '#67e8f9' },
+  pillGreen: { backgroundColor: '#16a34a22', color: '#86efac' },
+  pillAmber: { backgroundColor: '#f59e0b22', color: '#fcd34d' },
+  pillRed: { backgroundColor: '#dc262622', color: '#fca5a5' },
+  modeSwitcher: { flexDirection: 'row', backgroundColor: '#0f172a', borderRadius: 18, padding: 4, borderWidth: 1, borderColor: '#1e293b' },
+  modeButton: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14 },
+  modeButtonActive: { backgroundColor: '#22d3ee' },
+  modeText: { color: '#94a3b8', fontWeight: '900', fontSize: 12 },
+  modeTextActive: { color: '#020617' },
+  card: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start' },
   cardHeaderSimple: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   cardTitle: { color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 6 },
-  cardText: { color: '#94a3b8', fontSize: 14, lineHeight: 21 },
-  mutedSmall: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  cardText: { color: '#94a3b8', fontSize: 14, lineHeight: 20 },
   iconBox: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  modeSwitcher: { flexDirection: 'row', backgroundColor: '#0f172a', borderRadius: 18, padding: 4, borderWidth: 1, borderColor: '#1e293b' },
-  modeButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 14 },
-  modeButtonActive: { backgroundColor: '#164e63' },
-  modeText: { color: '#94a3b8', fontWeight: '800', fontSize: 12 },
-  modeTextActive: { color: '#67e8f9' },
   grid2: { flexDirection: 'row', gap: 12 },
   actionCard: { flex: 1, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 22, padding: 14 },
-  actionTitle: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 10 },
-  actionText: { color: '#94a3b8', fontSize: 12, lineHeight: 18, marginTop: 4 },
-  screenTitle: { color: '#fff', fontSize: 30, fontWeight: '900' },
-  screenSubtitle: { color: '#94a3b8', fontSize: 14, lineHeight: 21, marginTop: 4 },
+  actionTitle: { color: '#fff', fontWeight: '900', fontSize: 16, marginTop: 12 },
+  actionText: { color: '#94a3b8', fontSize: 12, marginTop: 4, lineHeight: 17 },
+  mutedSmall: { color: '#64748b', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
+  screenTitle: { color: '#fff', fontSize: 29, fontWeight: '900' },
+  screenSubtitle: { color: '#94a3b8', fontSize: 15, marginTop: 5, lineHeight: 22 },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  symbolBadge: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#083344' },
-  symbolBadgeText: { color: '#22d3ee', fontWeight: '900', fontSize: 15 },
-  assetTicker: { color: '#fff', fontWeight: '900', fontSize: 16 },
-  assetName: { color: '#94a3b8', fontSize: 13, marginTop: 3 },
+  symbolBadge: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#155e75' },
+  symbolBadgeText: { color: '#22d3ee', fontWeight: '900' },
+  assetTicker: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  assetName: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   assetRight: { alignItems: 'flex-end' },
-  assetPrice: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  assetChange: { fontWeight: '900', fontSize: 13, marginTop: 3 },
+  assetPrice: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  assetChange: { fontSize: 13, fontWeight: '900', marginTop: 3 },
   greenText: { color: '#34d399' },
-  redText: { color: '#fb7185' },
+  redText: { color: '#f87171' },
   starButton: { padding: 4 },
   inputGrid: { flexDirection: 'row', gap: 10, marginTop: 12 },
   inputBox: { flex: 1 },
   inputLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '800', marginBottom: 6 },
-  input: { backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', color: '#fff', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
+  input: { backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 11, color: '#fff', fontSize: 15 },
   textArea: { minHeight: 100, textAlignVertical: 'top', marginTop: 12 },
-  bigMetric: { color: '#fff', fontSize: 34, fontWeight: '900', marginTop: 12 },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
-  checkCircle: { width: 28, height: 28, borderRadius: 10, backgroundColor: '#083344', alignItems: 'center', justifyContent: 'center' },
-  checkNumber: { color: '#22d3ee', fontWeight: '900' },
-  checkText: { color: '#cbd5e1', flex: 1, lineHeight: 20 },
-  reportRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#1e293b' },
-  learnBox: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
-  learnTitle: { color: '#fff', fontWeight: '900' },
-  progressTrack: { height: 8, borderRadius: 999, overflow: 'hidden', backgroundColor: '#1e293b', marginVertical: 10 },
-  progressBar: { height: '100%', borderRadius: 999, backgroundColor: '#22d3ee' },
-  primaryButton: { backgroundColor: '#22d3ee', borderRadius: 16, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
+  bigMetric: { color: '#fff', fontSize: 35, fontWeight: '900', marginTop: 14 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 13 },
+  checkCircle: { width: 28, height: 28, borderRadius: 999, backgroundColor: '#22d3ee22', alignItems: 'center', justifyContent: 'center' },
+  checkNumber: { color: '#22d3ee', fontWeight: '900', fontSize: 12 },
+  checkText: { color: '#cbd5e1', flex: 1, fontSize: 14 },
+  reportRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
+  learnBox: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 13, marginTop: 13 },
+  learnTitle: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  progressTrack: { height: 7, backgroundColor: '#1e293b', borderRadius: 999, overflow: 'hidden', marginVertical: 9 },
+  progressBar: { height: '100%', backgroundColor: '#22d3ee' },
+  primaryButton: { marginTop: 12, borderRadius: 16, backgroundColor: '#22d3ee', paddingVertical: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   primaryButtonText: { color: '#020617', fontWeight: '900' },
-  secondaryButton: { borderColor: '#334155', borderWidth: 1, borderRadius: 16, paddingVertical: 13, alignItems: 'center', marginTop: 12 },
+  secondaryButton: { marginTop: 12, borderRadius: 16, borderWidth: 1, borderColor: '#334155', paddingVertical: 13, alignItems: 'center' },
   secondaryButtonText: { color: '#fff', fontWeight: '900' },
-  bottomNav: { position: 'absolute', left: 14, right: 14, bottom: 14, flexDirection: 'row', backgroundColor: '#020617ee', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 7, gap: 4 },
-  navItem: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 8, borderRadius: 18 },
-  navItemActive: { backgroundColor: '#0f172a' },
-  navLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '800' },
-  navLabelActive: { color: '#67e8f9' },
+  bottomNav: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 8, flexDirection: 'row', justifyContent: 'space-between' },
+  navItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 16 },
+  navItemActive: { backgroundColor: '#082f49' },
+  navLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '900', marginTop: 3 },
+  navLabelActive: { color: '#22d3ee' },
 });
