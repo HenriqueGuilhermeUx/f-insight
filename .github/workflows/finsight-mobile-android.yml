@@ -6,12 +6,12 @@ on:
       artifact:
         description: "Which Android artifact to build"
         required: true
-        default: "both"
+        default: "aab"
         type: choice
         options:
-          - both
-          - apk
           - aab
+          - apk
+          - both
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ env:
 
 jobs:
   android-build:
-    name: Build Android APK/AAB
+    name: Build signed Android artifacts
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,50 +41,75 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package.json
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
-      - name: Validate Expo dependencies
-        run: npx expo install --check || true
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@latest
 
-      - name: Prebuild Android project
-        run: npx expo prebuild --platform android --clean
-
-      - name: Build APK
-        if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
+      - name: Check Expo token
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew :app:assembleRelease --no-daemon
+          if [ -z "${EXPO_TOKEN}" ]; then
+            echo "EXPO_TOKEN is required. Add it in GitHub → Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build AAB
+      - name: Build signed Play Store AAB with EAS
         if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew :app:bundleRelease --no-daemon
+          eas build --platform android --profile production --non-interactive --wait --json > eas-aab-build.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('eas-aab-build.json', 'utf8').trim();
+          const parsed = JSON.parse(raw);
+          const build = Array.isArray(parsed) ? parsed[0] : parsed;
+          const url = build?.artifacts?.buildUrl || build?.artifactUrl || build?.artifacts?.applicationArchiveUrl;
+          if (!url) {
+            console.error('Could not find EAS AAB artifact URL in build output.');
+            console.error(raw);
+            process.exit(1);
+          }
+          fs.writeFileSync('eas-aab-url.txt', url);
+          NODE
+          curl -L "$(cat eas-aab-url.txt)" -o finsight-playstore-release-signed.aab
 
-      - name: Upload APK artifact
+      - name: Build signed internal APK with EAS
         if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android --profile preview --non-interactive --wait --json > eas-apk-build.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('eas-apk-build.json', 'utf8').trim();
+          const parsed = JSON.parse(raw);
+          const build = Array.isArray(parsed) ? parsed[0] : parsed;
+          const url = build?.artifacts?.buildUrl || build?.artifactUrl || build?.artifacts?.applicationArchiveUrl;
+          if (!url) {
+            console.error('Could not find EAS APK artifact URL in build output.');
+            console.error(raw);
+            process.exit(1);
+          }
+          fs.writeFileSync('eas-apk-url.txt', url);
+          NODE
+          curl -L "$(cat eas-apk-url.txt)" -o finsight-internal-test-signed.apk
+
+      - name: Upload signed Play Store AAB artifact
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: finsight-android-apk
-          path: mobile/android/app/build/outputs/apk/release/*.apk
+          name: finsight-playstore-release-signed-aab
+          path: mobile/finsight-playstore-release-signed.aab
           if-no-files-found: error
 
-      - name: Upload AAB artifact
-        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+      - name: Upload signed APK artifact
+        if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: finsight-android-aab
-          path: mobile/android/app/build/outputs/bundle/release/*.aab
+          name: finsight-internal-test-signed-apk
+          path: mobile/finsight-internal-test-signed.apk
           if-no-files-found: error
