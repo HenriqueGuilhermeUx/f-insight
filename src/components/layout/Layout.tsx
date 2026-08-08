@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
   { label: 'Análises', href: '/analises', icon: BarChart3, public: true },
   { label: 'Premium', href: '/premium', icon: CreditCard, public: true },
   { label: 'Assessores', href: '/assessores-escritorios', icon: Building2, public: true },
+  { label: 'Área Logada', href: '/area-logada', icon: LogIn, public: true },
   { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
@@ -64,11 +65,17 @@ const publicBrandPaths = [
   '/backtesting',
   '/premium',
   '/assessores-escritorios',
+  '/area-logada',
+  '/cadastro-gratis',
+  '/criar-conta',
   '/precos',
   '/demo',
   '/login',
   '/termos',
   '/privacidade',
+  '/politica-de-privacidade',
+  '/excluir-conta',
+  '/excluir-dados',
   '/aviso-educacional',
   '/onboarding',
   '/cadastro-escritorio',
@@ -101,7 +108,7 @@ export function Layout({ children }: LayoutProps) {
   const brandName = isPublicBrand ? 'F-Insight' : tenant.brandName || 'F-Insight';
   const showTenantLogo = !isPublicBrand && Boolean(tenant.logoDataUrl);
   const visibleNav = navItems.filter((item) => item.public || (user && item.roles?.includes(user.role)));
-  const loggedAreaPath = user ? roleHomePath(user.role) : '/login';
+  const loggedAreaPath = user ? roleHomePath(user.role) : '/area-logada';
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -160,6 +167,15 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {!user && (
+                <Link
+                  to="/cadastro-gratis"
+                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-400 text-slate-950 text-sm font-black hover:bg-cyan-300 transition-colors"
+                >
+                  Criar conta
+                </Link>
+              )}
+
               {user ? (
                 <button
                   onClick={() => void logout()}
@@ -171,7 +187,7 @@ export function Layout({ children }: LayoutProps) {
                 </button>
               ) : (
                 <Link
-                  to="/login"
+                  to="/area-logada"
                   className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm hover:bg-emerald-500/15 transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
@@ -193,6 +209,14 @@ export function Layout({ children }: LayoutProps) {
       {isMobileMenuOpen && (
         <div className="xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20 overflow-y-auto max-h-screen">
+            {!user && (
+              <Link
+                to="/cadastro-gratis"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-black text-slate-950 bg-cyan-400 mb-2"
+              >
+                Criar conta grátis
+              </Link>
+            )}
             <Link
               to={loggedAreaPath}
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium text-emerald-400 bg-emerald-500/10 mb-2"
@@ -239,21 +263,11 @@ export function Layout({ children }: LayoutProps) {
               </span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
-              <Link to="/radar" className="hover:text-slate-300 transition-colors">
-                Radar
-              </Link>
-              <Link to="/premium" className="hover:text-slate-300 transition-colors">
-                Premium
-              </Link>
-              <Link to="/assessores-escritorios" className="hover:text-slate-300 transition-colors">
-                Assessores
-              </Link>
-              <Link to="/termos" className="hover:text-slate-300 transition-colors">
-                Termos
-              </Link>
-              <Link to="/privacidade" className="hover:text-slate-300 transition-colors">
-                Privacidade
-              </Link>
+              <Link to="/radar" className="hover:text-slate-300 transition-colors">Radar</Link>
+              <Link to="/premium" className="hover:text-slate-300 transition-colors">Premium</Link>
+              <Link to="/assessores-escritorios" className="hover:text-slate-300 transition-colors">Assessores</Link>
+              <Link to="/termos" className="hover:text-slate-300 transition-colors">Termos</Link>
+              <Link to="/privacidade" className="hover:text-slate-300 transition-colors">Privacidade</Link>
             </div>
           </div>
         </div>
