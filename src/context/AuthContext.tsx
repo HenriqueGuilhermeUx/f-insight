@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export type AuthRole = 'admin' | 'advisor' | 'client';
+export type AuthPlan = 'free' | 'premium';
 
 export interface AuthUser {
   id: string;
@@ -9,6 +10,15 @@ export interface AuthUser {
   fullName: string;
   role: AuthRole;
   isDemo: boolean;
+  plan?: AuthPlan;
+}
+
+interface StoredAccount {
+  email: string;
+  password: string;
+  fullName: string;
+  role: AuthRole;
+  plan: AuthPlan;
 }
 
 interface AuthContextValue {
@@ -24,6 +34,23 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = 'f-insight-auth-user';
+const ACCOUNTS_KEY = 'f-insight-local-accounts';
+const REVIEWER_EMAIL = 'notarizex@gmail.com';
+const REVIEWER_PASSWORD = 'Finsight@2026';
+
+const seededAccounts: StoredAccount[] = [
+  {
+    email: REVIEWER_EMAIL,
+    password: REVIEWER_PASSWORD,
+    fullName: 'Revisor Google',
+    role: 'client',
+    plan: 'premium',
+  },
+];
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
 
 function normalizeRole(value: unknown): AuthRole {
   if (value === 'advisor' || value === 'client' || value === 'admin') return value;
@@ -50,17 +77,47 @@ function demoUser(role: AuthRole): AuthUser {
     fullName: names[role],
     role,
     isDemo: true,
+    plan: role === 'client' ? 'premium' : 'free',
   };
 }
 
-function localFreeUser(input: { email: string; fullName: string; role: AuthRole }): AuthUser {
+function userFromAccount(account: StoredAccount): AuthUser {
   return {
-    id: `local-${Date.now()}`,
-    email: input.email,
-    fullName: input.fullName || input.email,
-    role: input.role,
+    id: `local-${account.email}`,
+    email: account.email,
+    fullName: account.fullName || account.email,
+    role: account.role,
     isDemo: false,
+    plan: account.plan,
   };
+}
+
+function readAccounts(): StoredAccount[] {
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
+    const saved = raw ? JSON.parse(raw) as StoredAccount[] : [];
+    const merged = [...seededAccounts, ...saved];
+    const seen = new Set<string>();
+    return merged.filter((account) => {
+      const key = normalizeEmail(account.email);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch {
+    return seededAccounts;
+  }
+}
+
+function saveAccount(account: StoredAccount) {
+  const email = normalizeEmail(account.email);
+  const accounts = readAccounts().filter((item) => normalizeEmail(item.email) !== email && normalizeEmail(item.email) !== REVIEWER_EMAIL);
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([...accounts, { ...account, email }]));
+}
+
+function findAccount(email: string, password: string) {
+  const normalized = normalizeEmail(email);
+  return readAccounts().find((account) => normalizeEmail(account.email) === normalized && account.password === password);
 }
 
 function saveLocalUser(user: AuthUser | null) {
@@ -93,18 +150,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (localUser && mounted) setUser(localUser);
 
       if (isSupabaseConfigured && supabase) {
-        const { data } = await supabase.auth.getSession();
-        const sessionUser = data.session?.user;
-        if (sessionUser && mounted) {
-          const mappedUser: AuthUser = {
-            id: sessionUser.id,
-            email: sessionUser.email || localUser?.email || '',
-            fullName: String(sessionUser.user_metadata?.full_name || sessionUser.email || 'Usuário'),
-            role: normalizeRole(sessionUser.user_metadata?.role || localUser?.role),
-            isDemo: false,
-          };
-          setUser(mappedUser);
-          saveLocalUser(mappedUser);
+        try {
+          const { data } = await supabase.auth.getSession();
+          const sessionUser = data.session?.user;
+          if (sessionUser && mounted) {
+            const mappedUser: AuthUser = {
+              id: sessionUser.id,
+              email: sessionUser.email || localUser?.email || '',
+              fullName: String(sessionUser.user_metadata?.full_name || sessionUser.email || 'Usuário'),
+              role: normalizeRole(sessionUser.user_metadata?.role || localUser?.role),
+              isDemo: false,
+              plan: localUser?.plan || 'free',
+            };
+            setUser(mappedUser);
+            saveLocalUser(mappedUser);
+          }
+        } catch {
+          // Mantém o acesso local para não quebrar a experiência quando o login online falhar.
         }
       }
 
@@ -121,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName: String(session.user.user_metadata?.full_name || session.user.email || 'Usuário'),
         role: normalizeRole(session.user.user_metadata?.role),
         isDemo: false,
+        plan: 'free',
       };
       setUser(mappedUser);
       saveLocalUser(mappedUser);
@@ -144,72 +207,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return nextUser;
     },
     async signInWithPassword(email: string, password: string) {
-      if (!supabase) throw new Error('Login online indisponível agora. Use a conta gratuita/local ou o modo demo.');
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      if (!data.user) throw new Error('Login não retornou usuário.');
-      const mappedUser: AuthUser = {
-        id: data.user.id,
-        email: data.user.email || email,
-        fullName: String(data.user.user_metadata?.full_name || data.user.email || email),
-        role: normalizeRole(data.user.user_metadata?.role),
-        isDemo: false,
-      };
-      setUser(mappedUser);
-      saveLocalUser(mappedUser);
-      return mappedUser;
-    },
-    async signUpWithPassword(input) {
-      const makeLocalAccess = () => {
-        const nextUser = localFreeUser({ email: input.email, fullName: input.fullName, role: input.role });
+      const localAccount = findAccount(email, password);
+      if (localAccount) {
+        const nextUser = userFromAccount(localAccount);
         setUser(nextUser);
         saveLocalUser(nextUser);
         return nextUser;
+      }
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          if (!data.user) throw new Error('Login não retornou usuário.');
+          const mappedUser: AuthUser = {
+            id: data.user.id,
+            email: data.user.email || email,
+            fullName: String(data.user.user_metadata?.full_name || data.user.email || email),
+            role: normalizeRole(data.user.user_metadata?.role),
+            isDemo: false,
+            plan: 'free',
+          };
+          setUser(mappedUser);
+          saveLocalUser(mappedUser);
+          return mappedUser;
+        } catch {
+          // Cai para a mensagem amigável abaixo.
+        }
+      }
+
+      throw new Error('Não encontramos essa conta local. Crie uma conta grátis ou use o acesso de revisão informado na Play Console.');
+    },
+    async signUpWithPassword(input) {
+      const account: StoredAccount = {
+        email: normalizeEmail(input.email),
+        password: input.password,
+        fullName: input.fullName || input.email,
+        role: input.role,
+        plan: input.role === 'client' ? 'free' : 'free',
       };
 
-      if (!supabase) {
-        if (input.role === 'client') return makeLocalAccess();
-        throw new Error('Login institucional indisponível agora. Use o modo demo ou confira a configuração do Supabase.');
+      if (input.role === 'client') {
+        saveAccount(account);
       }
 
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: input.email,
-          password: input.password,
-          options: {
-            data: {
-              full_name: input.fullName,
-              role: input.role,
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email: input.email,
+            password: input.password,
+            options: {
+              data: {
+                full_name: input.fullName,
+                role: input.role,
+              },
             },
-          },
-        });
-        if (error) throw error;
-        if (!data.user) throw new Error('Cadastro não retornou usuário.');
-
-        const profileRole = input.role === 'admin' ? 'tenant_admin' : input.role;
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          auth_user_id: data.user.id,
-          email: input.email,
-          full_name: input.fullName,
-          role: profileRole,
-        }, { onConflict: 'email' });
-
-        if (profileError && input.role !== 'client') throw profileError;
-
-        const mappedUser: AuthUser = {
-          id: data.user.id,
-          email: input.email,
-          fullName: input.fullName,
-          role: input.role,
-          isDemo: false,
-        };
-        setUser(mappedUser);
-        saveLocalUser(mappedUser);
-        return mappedUser;
-      } catch (error) {
-        if (input.role === 'client') return makeLocalAccess();
-        throw error;
+          });
+          if (error) throw error;
+          if (data.user) {
+            const profileRole = input.role === 'admin' ? 'tenant_admin' : input.role;
+            await supabase.from('profiles').upsert({
+              auth_user_id: data.user.id,
+              email: input.email,
+              full_name: input.fullName,
+              role: profileRole,
+            }, { onConflict: 'email' });
+          }
+        } catch {
+          // O cadastro local continua válido mesmo quando Supabase/Netlify falhar.
+        }
       }
+
+      const nextUser = userFromAccount(account);
+      setUser(nextUser);
+      saveLocalUser(nextUser);
+      return nextUser;
     },
     async logout() {
       saveLocalUser(null);
