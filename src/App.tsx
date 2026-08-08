@@ -8,6 +8,9 @@ import Pricing from './pages/Pricing';
 import PremiumIndividual from './pages/PremiumIndividual';
 import AdvisorsOffices from './pages/AdvisorsOffices';
 import MarketToolPage from './pages/MarketToolPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import DeleteAccount from './pages/DeleteAccount';
+import DeleteData from './pages/DeleteData';
 import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
@@ -57,7 +60,14 @@ function App() {
             <Route path="/precos" element={<Pricing />} />
             <Route path="/demo" element={<DemoExperience />} />
             <Route path="/termos" element={<LegalTerms />} />
-            <Route path="/privacidade" element={<LegalTerms />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
+            <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+            <Route path="/excluir-conta" element={<DeleteAccount />} />
+            <Route path="/deletar-conta" element={<DeleteAccount />} />
+            <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/excluir-dados" element={<DeleteData />} />
+            <Route path="/deletar-dados" element={<DeleteData />} />
+            <Route path="/delete-data" element={<DeleteData />} />
             <Route path="/aviso-educacional" element={<LegalTerms />} />
             <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
