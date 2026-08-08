@@ -5,6 +5,9 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Home from './pages/Home';
 import Pricing from './pages/Pricing';
+import PremiumIndividual from './pages/PremiumIndividual';
+import AdvisorsOffices from './pages/AdvisorsOffices';
+import MarketToolPage from './pages/MarketToolPage';
 import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
@@ -46,6 +49,11 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/portal" element={<PublicPortal />} />
+            <Route path="/assessores-escritorios" element={<AdvisorsOffices />} />
+            <Route path="/premium" element={<PremiumIndividual />} />
+            <Route path="/graham-valor" element={<MarketToolPage tool="graham" />} />
+            <Route path="/screener-acoes" element={<MarketToolPage tool="screener" />} />
+            <Route path="/backtesting" element={<MarketToolPage tool="backtesting" />} />
             <Route path="/precos" element={<Pricing />} />
             <Route path="/demo" element={<DemoExperience />} />
             <Route path="/termos" element={<LegalTerms />} />
