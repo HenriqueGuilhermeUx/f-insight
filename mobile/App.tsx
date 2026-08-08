@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Platform,
   Pressable,
@@ -17,10 +16,10 @@ import {
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://f-insight-api.onrender.com';
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://f-insight.netlify.app';
 
-type Section = 'hoje' | 'radar' | 'ativos' | 'mercado' | 'mais';
+type Section = 'hoje' | 'radar' | 'ativos' | 'mercado' | 'conta' | 'mais';
 type LiveIndicator = { symbol: string; lastPrice: number; changePercent: number; fetchedAt?: string };
-type NewsItem = { title: string; source: string; time: string };
 type MacroItem = { id: string; label: string; value: number; unit: string; date?: string; source?: string; interpretation?: string };
+type FreeAccount = { name: string; email: string };
 
 const fallbackIndicators: LiveIndicator[] = [
   { symbol: 'PETR4.SA', lastPrice: 38.42, changePercent: 0.72 },
@@ -33,11 +32,11 @@ const fallbackIndicators: LiveIndicator[] = [
   { symbol: 'RENT3.SA', lastPrice: 52.1, changePercent: 1.03 },
 ];
 
-const indexes = [
-  { label: 'IBOV', value: '178.002', change: '0,00%', tone: 'flat' },
-  { label: 'S&P 500', value: '7.600', change: '+1,48%', tone: 'up' },
-  { label: 'Dólar', value: 'R$ 5,10', change: '+0,15%', tone: 'up' },
-  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%', tone: 'up' },
+const indexCards = [
+  { label: 'IBOV', value: '178.002', change: 'acompanhar', up: true },
+  { label: 'S&P 500', value: '7.600', change: '+1,48%', up: true },
+  { label: 'Dólar', value: 'R$ 5,10', change: '+0,15%', up: true },
+  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%', up: true },
 ];
 
 const macroFallback: MacroItem[] = [
@@ -46,23 +45,22 @@ const macroFallback: MacroItem[] = [
   { id: 'usdbrl', label: 'Dólar Comercial', value: 5.1, unit: 'BRL', source: 'fallback offline', interpretation: 'Câmbio afeta inflação, commodities, exportadoras e empresas com dívida em dólar.' },
 ];
 
-const fallbackNews: NewsItem[] = [
+const news = [
   { title: 'Mercado acompanha juros, dólar, commodities e temporada de balanços.', source: 'F-Insight Research', time: 'agora' },
-  { title: 'Ações ligadas a commodities reagem a câmbio e sinais da China.', source: 'Radar Brasil', time: '2h' },
-  { title: 'Bancos seguem sensíveis à curva de juros e qualidade do crédito.', source: 'Mercado', time: '4h' },
+  { title: 'Bancos seguem sensíveis à curva de juros e qualidade do crédito.', source: 'Radar Brasil', time: '2h' },
+  { title: 'Valuation exige mais disciplina quando a Selic está elevada.', source: 'Painel Macro', time: 'hoje' },
 ];
 
-const screener = [
+const screenerRows = [
   { ticker: 'PETR4', name: 'Petrobras PN', pe: '5,1x', pvp: '1,2x', dy: '12,4%', roe: '23%', tag: 'Valor' },
   { ticker: 'BBAS3', name: 'Banco do Brasil ON', pe: '4,8x', pvp: '0,9x', dy: '9,8%', roe: '21%', tag: 'Dividendos' },
   { ticker: 'VALE3', name: 'Vale ON', pe: '6,7x', pvp: '1,4x', dy: '7,1%', roe: '18%', tag: 'Commodities' },
   { ticker: 'ITUB4', name: 'Itaú Unibanco PN', pe: '8,9x', pvp: '1,7x', dy: '6,2%', roe: '20%', tag: 'Qualidade' },
-  { ticker: 'WEGE3', name: 'WEG ON', pe: '32,0x', pvp: '8,4x', dy: '1,5%', roe: '27%', tag: 'Crescimento' },
 ];
 
 const premiumFeatures = [
-  'IA financeira completa para explicar ativos, indicadores e cenário.',
-  'Screener avançado com filtros de valor, dividendos, qualidade e risco.',
+  'IA financeira completa para explicar ativos, notícias, indicadores e cenário.',
+  'Screener avançado com filtros de valor, dividendos, qualidade, risco e liquidez.',
   'Carteira simulada, alertas inteligentes, backtesting e relatórios semanais.',
 ];
 
@@ -94,9 +92,9 @@ function pct(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}%`;
 }
 
-function parseNumber(value: string) {
-  const parsed = Number(value.replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : 0;
+function macroValue(item: MacroItem) {
+  if (item.unit === 'BRL') return `R$ ${item.value.toFixed(2).replace('.', ',')}`;
+  return `${item.value.toFixed(2).replace('.', ',')}%`;
 }
 
 function clock(value?: string) {
@@ -104,12 +102,6 @@ function clock(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'base educativa';
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function macroValue(item: MacroItem) {
-  if (item.unit === 'BRL') return `R$ ${item.value.toFixed(2).replace('.', ',')}`;
-  const decimals = item.value % 1 === 0 ? 2 : 2;
-  return `${item.value.toFixed(decimals).replace('.', ',')}%`;
 }
 
 function openWeb(path: string) {
@@ -121,8 +113,8 @@ function Card({ children, highlight = false }: { children: React.ReactNode; high
   return <View style={[styles.card, highlight && styles.cardHighlight]}>{children}</View>;
 }
 
-function Badge({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' | 'amber' | 'red' | 'dark' }) {
-  const toneStyle = tone === 'green' ? styles.badgeGreen : tone === 'amber' ? styles.badgeAmber : tone === 'red' ? styles.badgeRed : tone === 'dark' ? styles.badgeDark : styles.badgeBlue;
+function Badge({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' | 'amber' | 'dark' }) {
+  const toneStyle = tone === 'green' ? styles.badgeGreen : tone === 'amber' ? styles.badgeAmber : tone === 'dark' ? styles.badgeDark : styles.badgeBlue;
   return <Text style={[styles.badge, toneStyle]}>{children}</Text>;
 }
 
@@ -139,12 +131,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [isMacroLive, setIsMacroLive] = useState(false);
-  const [macroUpdatedAt, setMacroUpdatedAt] = useState<string | undefined>();
+  const [updatedAt, setUpdatedAt] = useState<string | undefined>();
   const [indicators, setIndicators] = useState<LiveIndicator[]>([]);
   const [macroItems, setMacroItems] = useState<MacroItem[]>(macroFallback);
   const [watch, setWatch] = useState(['PETR4.SA', 'ITUB4.SA', 'BBAS3.SA']);
-  const [price, setPrice] = useState('28');
-  const [fairValue, setFairValue] = useState('36');
+  const [account, setAccount] = useState<FreeAccount | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +159,7 @@ export default function App() {
           const data = Array.isArray(payload?.data) ? payload.data : [];
           setIndicators(data);
           setIsLive(data.length > 0);
+          setUpdatedAt(data[0]?.fetchedAt);
         } else {
           setIndicators([]);
           setIsLive(false);
@@ -174,8 +170,8 @@ export default function App() {
           const data = Array.isArray(payload?.indicators) ? payload.indicators : [];
           if (data.length > 0) {
             setMacroItems(data);
-            setMacroUpdatedAt(payload?.updatedAt);
             setIsMacroLive(String(payload?.source || '').includes('online') || String(payload?.source || '').includes('banco-central'));
+            setUpdatedAt(payload?.updatedAt || updatedAt);
           }
         } else {
           setMacroItems(macroFallback);
@@ -184,8 +180,8 @@ export default function App() {
       } catch {
         if (!cancelled) {
           setIndicators([]);
-          setIsLive(false);
           setMacroItems(macroFallback);
+          setIsLive(false);
           setIsMacroLive(false);
         }
       } finally {
@@ -203,79 +199,79 @@ export default function App() {
   const watchedAssets = marketData.filter((item) => watch.includes(item.symbol));
   const avgChange = marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length;
 
-  const marketMood = useMemo(() => {
-    if (avgChange > 0.6) return { title: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Confirme fundamento, fluxo e notícia antes de agir.' };
-    if (avgChange < -0.6) return { title: 'Mercado pressionado', text: 'A amostra está negativa. Priorize risco, liquidez, qualidade e horizonte.' };
+  const mood = useMemo(() => {
+    if (avgChange > 0.6) return { title: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Confirme fundamento, fluxo e notícia antes de decidir.' };
+    if (avgChange < -0.6) return { title: 'Mercado pressionado', text: 'A amostra está negativa. Foque em risco, liquidez, qualidade e horizonte.' };
     return { title: 'Mercado misto', text: 'Sem direção única. Separe empresas, setores, valuation e cenário macro.' };
   }, [avgChange]);
-
-  const margin = useMemo(() => {
-    const current = parseNumber(price);
-    const target = parseNumber(fairValue);
-    if (!current || !target) return null;
-    return ((target - current) / target) * 100;
-  }, [price, fairValue]);
 
   function toggleWatch(symbol: string) {
     setWatch((current) => (current.includes(symbol) ? current.filter((item) => item !== symbol) : [...current, symbol]));
   }
 
-  function openLoggedArea() {
-    Alert.alert('Área Logada', 'Escolha o tipo de acesso:', [
-      { text: 'Cliente', onPress: () => openWeb('/cliente') },
-      { text: 'Assessor', onPress: () => openWeb('/assessor') },
-      { text: 'Escritório/Admin', onPress: () => openWeb('/admin') },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+  function createFreeAccount() {
+    if (!name.trim() || !email.trim() || password.length < 6) {
+      setMessage('Preencha nome, e-mail e senha com pelo menos 6 caracteres.');
+      return;
+    }
+    setAccount({ name: name.trim(), email: email.trim() });
+    setMessage('Conta gratuita criada neste app. Agora você vê mais ferramentas e pode avaliar o Premium.');
+    setSection('hoje');
   }
 
   function renderHoje() {
     return (
       <View style={styles.stack}>
         <Card highlight>
-          <Text style={styles.kicker}>DADOS EM TEMPO REAL</Text>
-          <Text style={styles.heroTitle}>Inteligência financeira clara para acompanhar o mercado.</Text>
-          <Text style={styles.heroText}>Cotações, notícias, macro, fundamentos, radar e ferramentas educativas no celular.</Text>
+          <Text style={styles.kicker}>F-INSIGHT PARA INVESTIDORES</Text>
+          <Text style={styles.heroTitle}>Veja o mercado, crie sua conta grátis e aprofunde com Premium.</Text>
+          <Text style={styles.heroText}>Cotações, macro, notícias, radar, fundamentos, screener, Graham & Valor e ferramentas educativas em uma experiência simples.</Text>
           <View style={styles.rowWrap}>
             <Badge tone={isLive ? 'green' : 'amber'}>{isLive ? 'Cotações online' : 'cotações demo'}</Badge>
             <Badge tone={isMacroLive ? 'green' : 'amber'}>{isMacroLive ? 'Macro online BCB' : 'macro fallback'}</Badge>
-            <Badge tone="dark">Atualizado {clock(macroUpdatedAt || marketData[0]?.fetchedAt)}</Badge>
+            <Badge tone="dark">Atualizado {clock(updatedAt)}</Badge>
           </View>
-          <View style={styles.buttonRow}>
-            <Button label="Criar conta grátis" primary onPress={() => openWeb('/login')} />
-            <Button label="Premium R$19,90" onPress={() => openWeb('/premium')} />
-          </View>
+          {account ? (
+            <View style={styles.accountPill}>
+              <Text style={styles.accountPillText}>Conta grátis ativa: {account.name}</Text>
+            </View>
+          ) : (
+            <View style={styles.buttonRow}>
+              <Button label="Criar conta grátis" primary onPress={() => setSection('conta')} />
+              <Button label="Ver Premium" onPress={() => openWeb('/premium')} />
+            </View>
+          )}
         </Card>
 
         <View style={styles.indexGrid}>
-          {indexes.map((item) => (
+          {indexCards.map((item) => (
             <View key={item.label} style={styles.indexCard}>
               <Text style={styles.indexLabel}>{item.label}</Text>
               <Text style={styles.indexValue}>{item.value}</Text>
-              <Text style={item.tone === 'up' ? styles.greenText : styles.mutedText}>{item.change}</Text>
+              <Text style={item.up ? styles.greenText : styles.mutedText}>{item.change}</Text>
             </View>
           ))}
         </View>
 
         <Card>
-          <Text style={styles.cardTitle}>{marketMood.title}</Text>
-          <Text style={styles.cardText}>{marketMood.text}</Text>
+          <Text style={styles.cardTitle}>{mood.title}</Text>
+          <Text style={styles.cardText}>{mood.text}</Text>
         </Card>
 
         <Card>
           <View style={styles.sectionHeader}>
             <Text style={styles.cardTitle}>Painel macro</Text>
-            <Text style={styles.sourceText}>{isMacroLive ? 'Fonte: Banco Central online' : 'Fallback offline'}</Text>
+            <Text style={styles.sourceText}>{isMacroLive ? 'online BCB' : 'fallback offline'}</Text>
           </View>
           {macroItems.map((item) => (
             <View key={item.id || item.label} style={styles.macroRow}>
               <View style={styles.flex1}>
                 <Text style={styles.rowTitle}>{item.label}</Text>
-                <Text style={styles.rowText}>{item.interpretation || 'Indicador macroeconômico acompanhado pelo F-Insight.'}</Text>
+                <Text style={styles.rowText}>{item.interpretation || 'Indicador macro acompanhado pelo F-Insight.'}</Text>
               </View>
               <View style={styles.macroValueBox}>
                 <Text style={styles.macroValue}>{macroValue(item)}</Text>
-                <Text style={styles.sourceText}>{item.source || item.date || 'online'}</Text>
+                <Text style={styles.sourceText}>{item.source || 'API'}</Text>
               </View>
             </View>
           ))}
@@ -283,12 +279,53 @@ export default function App() {
 
         <Card>
           <Text style={styles.cardTitle}>Últimas notícias</Text>
-          {fallbackNews.map((item) => (
+          {news.map((item) => (
             <View key={item.title} style={styles.newsRow}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.rowText}>{item.source} · {item.time}</Text>
             </View>
           ))}
+        </Card>
+
+        {!account && (
+          <Card>
+            <Text style={styles.cardTitle}>Por que criar conta grátis?</Text>
+            <Text style={styles.cardText}>Libera watchlist no app, ferramentas de estudo e caminho para Premium. A área de cliente assessorado/assessor/escritório fica separada para não confundir.</Text>
+            <View style={styles.buttonRow}>
+              <Button label="Criar conta" primary onPress={() => setSection('conta')} />
+              <Button label="Área Logada" onPress={() => openWeb('/area-logada')} />
+            </View>
+          </Card>
+        )}
+      </View>
+    );
+  }
+
+  function renderConta() {
+    return (
+      <View style={styles.stack}>
+        <Card highlight>
+          <Text style={styles.kicker}>CONTA GRATUITA</Text>
+          <Text style={styles.heroTitle}>Crie seu acesso como investidor.</Text>
+          <Text style={styles.heroText}>Aqui não é ambiente de escritório. É uma conta simples para acompanhar mercado, usar ferramentas e conhecer o Premium.</Text>
+        </Card>
+
+        <Card>
+          <Text style={styles.inputLabel}>Nome completo</Text>
+          <TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor="#64748b" style={styles.input} />
+          <Text style={styles.inputLabel}>E-mail</Text>
+          <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="seu@email.com" placeholderTextColor="#64748b" style={styles.input} />
+          <Text style={styles.inputLabel}>Senha</Text>
+          <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" placeholderTextColor="#64748b" style={styles.input} />
+          {message ? <Text style={message.includes('criada') ? styles.successBox : styles.errorBox}>{message}</Text> : null}
+          <Button label="Criar acesso gratuito" primary onPress={createFreeAccount} />
+          <Text style={styles.disclaimer}>Este cadastro local não expõe patrimônio, saldo ou posição real. A autenticação completa será conectada à conta online do F-Insight.</Text>
+        </Card>
+
+        <Card>
+          <Text style={styles.cardTitle}>Já é cliente, assessor ou escritório?</Text>
+          <Text style={styles.cardText}>Use a Área Logada institucional, separada da conta gratuita do investidor avulso.</Text>
+          <Button label="Abrir Área Logada" onPress={() => openWeb('/area-logada')} />
         </Card>
       </View>
     );
@@ -314,9 +351,11 @@ export default function App() {
                 <Text style={styles.assetPrice}>{money(item.lastPrice)}</Text>
                 <Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text>
               </View>
-              <Pressable style={styles.watchButton} onPress={() => toggleWatch(item.symbol)}>
-                <Text style={styles.watchText}>{watch.includes(item.symbol) ? '✓' : '+'}</Text>
-              </Pressable>
+              {account && (
+                <Pressable style={styles.watchButton} onPress={() => toggleWatch(item.symbol)}>
+                  <Text style={styles.watchText}>{watch.includes(item.symbol) ? '✓' : '+'}</Text>
+                </Pressable>
+              )}
             </Pressable>
           ))
         )}
@@ -329,32 +368,25 @@ export default function App() {
       <View style={styles.stack}>
         <Card>
           <Text style={styles.cardTitle}>Ativos e fundamentos</Text>
-          <Text style={styles.cardText}>Screener educativo com múltiplos, dividendos e qualidade.</Text>
+          <Text style={styles.cardText}>Screener educativo com P/L, P/VP, dividend yield, ROE e leitura de valor.</Text>
         </Card>
-        {screener.map((item) => (
-          <Pressable key={item.ticker} style={styles.screenerRow} onPress={() => openWeb(`/ativo/${item.ticker}`)}>
-            <View style={styles.flex1}>
-              <Text style={styles.assetTicker}>{item.ticker}</Text>
-              <Text style={styles.rowText}>{item.name}</Text>
-              <View style={styles.metricRow}>
-                <Text style={styles.metric}>P/L {item.pe}</Text>
-                <Text style={styles.metric}>P/VP {item.pvp}</Text>
-                <Text style={styles.metric}>DY {item.dy}</Text>
-                <Text style={styles.metric}>ROE {item.roe}</Text>
+        {screenerRows.map((item) => (
+          <Card key={item.ticker}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.assetTicker}>{item.ticker}</Text>
+                <Text style={styles.rowText}>{item.name}</Text>
               </View>
+              <Badge tone="blue">{item.tag}</Badge>
             </View>
-            <Badge tone="blue">{item.tag}</Badge>
-          </Pressable>
+            <View style={styles.metricsGrid}>
+              <Text style={styles.metric}>P/L {item.pe}</Text>
+              <Text style={styles.metric}>P/VP {item.pvp}</Text>
+              <Text style={styles.metric}>DY {item.dy}</Text>
+              <Text style={styles.metric}>ROE {item.roe}</Text>
+            </View>
+          </Card>
         ))}
-        <Card>
-          <Text style={styles.cardTitle}>Margem de segurança</Text>
-          <Text style={styles.cardText}>Exercício educativo para comparar preço atual e valor estimado.</Text>
-          <View style={styles.inputRow}>
-            <TextInput value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="Preço" placeholderTextColor="#64748b" style={styles.input} />
-            <TextInput value={fairValue} onChangeText={setFairValue} keyboardType="numeric" placeholder="Valor justo" placeholderTextColor="#64748b" style={styles.input} />
-          </View>
-          <Text style={styles.resultText}>{margin === null ? 'Informe preço e valor.' : `Margem estimada: ${margin.toFixed(1).replace('.', ',')}%`}</Text>
-        </Card>
       </View>
     );
   }
@@ -364,18 +396,9 @@ export default function App() {
       <View style={styles.stack}>
         <Card>
           <Text style={styles.cardTitle}>Mercado e macro</Text>
-          <Text style={styles.cardText}>Juros, inflação, câmbio e leitura de cenário em linguagem simples.</Text>
+          <Text style={styles.cardText}>Selic, inflação, dólar, notícias e régua de oportunidade.</Text>
         </Card>
-        {macroItems.map((item) => (
-          <Card key={`mercado-${item.id || item.label}`}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>{item.label}</Text>
-              <Text style={styles.macroValue}>{macroValue(item)}</Text>
-            </View>
-            <Text style={styles.cardText}>{item.interpretation || 'Indicador acompanhado para leitura macro.'}</Text>
-            <Text style={styles.sourceText}>Fonte: {item.source || 'API F-Insight'} · {item.date || clock(macroUpdatedAt)}</Text>
-          </Card>
-        ))}
+        {renderHoje()}
       </View>
     );
   }
@@ -383,53 +406,71 @@ export default function App() {
   function renderMais() {
     return (
       <View style={styles.stack}>
-        <Card highlight>
-          <Text style={styles.cardTitle}>F-Insight Premium</Text>
-          <Text style={styles.priceText}>R$ 19,90/mês</Text>
-          {premiumFeatures.map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}
-          <Button label="Conhecer Premium" primary onPress={() => openWeb('/premium')} />
-        </Card>
+        {account && (
+          <Card highlight>
+            <Text style={styles.cardTitle}>Sua conta gratuita</Text>
+            <Text style={styles.cardText}>{account.name} · {account.email}</Text>
+            <Text style={styles.cardText}>Próximo passo: ativar Premium para IA, carteira simulada, alertas e backtesting.</Text>
+          </Card>
+        )}
+
         <Card>
-          <Text style={styles.cardTitle}>Área Logada</Text>
-          <Text style={styles.cardText}>Acesso discreto para clientes assessorados, assessores e escritórios.</Text>
-          <Button label="Abrir Área Logada" onPress={openLoggedArea} />
-        </Card>
-        <Card>
-          <Text style={styles.cardTitle}>Privacidade</Text>
+          <Text style={styles.cardTitle}>Premium R$ 19,90/mês</Text>
+          {premiumFeatures.map((item) => <Text key={item} style={styles.listItem}>• {item}</Text>)}
           <View style={styles.buttonRow}>
-            <Button label="Privacidade" onPress={() => openWeb('/privacidade')} />
-            <Button label="Excluir conta" onPress={() => openWeb('/excluir-conta')} />
+            <Button label="Conhecer Premium" primary onPress={() => openWeb('/premium')} />
+            <Button label="Área Logada" onPress={() => openWeb('/area-logada')} />
           </View>
+        </Card>
+
+        <Card>
+          <Text style={styles.cardTitle}>Área Logada institucional</Text>
+          <Text style={styles.cardText}>Para cliente assessorado, assessor e escritório/admin. Essa área fica separada da conta gratuita do investidor.</Text>
+          <Button label="Abrir Área Logada" onPress={() => openWeb('/area-logada')} />
         </Card>
       </View>
     );
   }
 
-  const content = section === 'radar' ? renderRadar() : section === 'ativos' ? renderAtivos() : section === 'mercado' ? renderMercado() : section === 'mais' ? renderMais() : renderHoje();
+  function renderContent() {
+    if (section === 'conta') return renderConta();
+    if (section === 'radar') return renderRadar();
+    if (section === 'ativos') return renderAtivos();
+    if (section === 'mercado') return renderMercado();
+    if (section === 'mais') return renderMais();
+    return renderHoje();
+  }
+
+  const tabs: Array<{ key: Section; label: string }> = [
+    { key: 'hoje', label: 'Hoje' },
+    { key: 'radar', label: 'Radar' },
+    { key: 'ativos', label: 'Ativos' },
+    { key: 'mercado', label: 'Mercado' },
+    { key: 'mais', label: 'Mais' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#020617" />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.logo}>F-Insight</Text>
-          <Text style={styles.subtitle}>Mercado, macro e inteligência financeira</Text>
+        <View style={styles.logo}><Text style={styles.logoText}>↗</Text></View>
+        <View style={styles.headerTextBox}>
+          <Text style={styles.headerTitle}>F-Insight</Text>
+          <Text style={styles.headerSubtitle}>{account ? 'Conta grátis ativa' : 'Mercado aberto'}</Text>
         </View>
-        <Pressable onPress={openLoggedArea} style={styles.loginPill}>
-          <Text style={styles.loginText}>Área Logada</Text>
+        <Pressable onPress={() => openWeb('/area-logada')} style={styles.headerButton}>
+          <Text style={styles.headerButtonText}>Área Logada</Text>
         </Pressable>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>{content}</ScrollView>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {renderContent()}
+      </ScrollView>
+
       <View style={styles.bottomNav}>
-        {[
-          ['hoje', 'Hoje'],
-          ['radar', 'Radar'],
-          ['ativos', 'Ativos'],
-          ['mercado', 'Mercado'],
-          ['mais', 'Mais'],
-        ].map(([key, label]) => (
-          <Pressable key={key} onPress={() => setSection(key as Section)} style={[styles.navItem, section === key && styles.navItemActive]}>
-            <Text style={[styles.navText, section === key && styles.navTextActive]}>{label}</Text>
+        {tabs.map((tab) => (
+          <Pressable key={tab.key} onPress={() => setSection(tab.key)} style={[styles.navItem, section === tab.key && styles.navItemActive]}>
+            <Text style={[styles.navText, section === tab.key && styles.navTextActive]}>{tab.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -438,66 +479,70 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#020617', paddingTop: Platform.OS === 'android' ? 8 : 0 },
-  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1e293b', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  logo: { color: '#e2e8f0', fontSize: 24, fontWeight: '900' },
-  subtitle: { color: '#64748b', fontSize: 11, fontWeight: '700' },
-  loginPill: { borderWidth: 1, borderColor: '#334155', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0f172a' },
-  loginText: { color: '#cbd5e1', fontSize: 12, fontWeight: '800' },
-  content: { padding: 16, paddingBottom: 112 },
+  safe: { flex: 1, backgroundColor: '#020617', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#0f172a', backgroundColor: '#020617' },
+  logo: { width: 52, height: 52, borderRadius: 18, backgroundColor: '#22d3ee', alignItems: 'center', justifyContent: 'center' },
+  logoText: { color: '#020617', fontSize: 32, fontWeight: '900' },
+  headerTextBox: { flex: 1 },
+  headerTitle: { color: '#fff', fontWeight: '900', fontSize: 20 },
+  headerSubtitle: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  headerButton: { borderWidth: 1, borderColor: '#334155', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: '#0f172a' },
+  headerButtonText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900' },
+  content: { padding: 16, paddingBottom: 108 },
   stack: { gap: 14 },
-  card: { borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 22, padding: 16 },
-  cardHighlight: { borderColor: '#164e63', backgroundColor: '#082f49' },
-  kicker: { color: '#67e8f9', fontSize: 11, fontWeight: '900', letterSpacing: 1.4, marginBottom: 8 },
-  heroTitle: { color: '#f8fafc', fontSize: 26, lineHeight: 31, fontWeight: '900' },
-  heroText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 10 },
+  card: { borderRadius: 24, borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', padding: 18 },
+  cardHighlight: { backgroundColor: '#0b2235', borderColor: '#155e75' },
+  kicker: { color: '#22d3ee', fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 10 },
+  heroTitle: { color: '#fff', fontSize: 28, lineHeight: 34, fontWeight: '900' },
+  heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 23, marginTop: 12 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  badge: { overflow: 'hidden', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 11, fontWeight: '900' },
-  badgeBlue: { color: '#67e8f9', backgroundColor: '#083344' },
-  badgeGreen: { color: '#86efac', backgroundColor: '#064e3b' },
-  badgeAmber: { color: '#fde68a', backgroundColor: '#451a03' },
-  badgeRed: { color: '#fecaca', backgroundColor: '#450a0a' },
-  badgeDark: { color: '#cbd5e1', backgroundColor: '#1e293b' },
-  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  button: { borderWidth: 1, borderColor: '#334155', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#0f172a' },
+  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, overflow: 'hidden', fontSize: 11, fontWeight: '900' },
+  badgeBlue: { color: '#67e8f9', backgroundColor: '#0e749020' },
+  badgeGreen: { color: '#86efac', backgroundColor: '#16a34a22' },
+  badgeAmber: { color: '#fde68a', backgroundColor: '#f59e0b22' },
+  badgeDark: { color: '#cbd5e1', backgroundColor: '#020617' },
+  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
+  button: { flexGrow: 1, borderWidth: 1, borderColor: '#334155', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', backgroundColor: '#020617' },
   buttonPrimary: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
-  buttonText: { color: '#e2e8f0', fontWeight: '900', fontSize: 13 },
-  buttonPrimaryText: { color: '#082f49' },
+  buttonText: { color: '#e2e8f0', fontWeight: '900' },
+  buttonPrimaryText: { color: '#020617' },
+  accountPill: { marginTop: 16, borderRadius: 16, backgroundColor: '#16a34a22', padding: 12, borderWidth: 1, borderColor: '#16a34a55' },
+  accountPillText: { color: '#bbf7d0', fontWeight: '900' },
   indexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  indexCard: { width: '48%', borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0b1220', borderRadius: 18, padding: 14 },
-  indexLabel: { color: '#64748b', fontSize: 11, fontWeight: '900' },
-  indexValue: { color: '#f8fafc', fontSize: 20, fontWeight: '900', marginTop: 8 },
-  cardTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
-  cardText: { color: '#94a3b8', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
-  sourceText: { color: '#64748b', fontSize: 10, fontWeight: '700' },
-  macroRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
-  flex1: { flex: 1 },
-  rowTitle: { color: '#e2e8f0', fontSize: 14, fontWeight: '900' },
-  rowText: { color: '#94a3b8', fontSize: 12, lineHeight: 17, marginTop: 3 },
-  macroValueBox: { alignItems: 'flex-end', maxWidth: 120 },
-  macroValue: { color: '#67e8f9', fontSize: 17, fontWeight: '900' },
-  newsRow: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
+  indexCard: { width: '48%', borderRadius: 20, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', padding: 14 },
+  indexLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  indexValue: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 8 },
   greenText: { color: '#86efac', fontWeight: '900' },
   redText: { color: '#fca5a5', fontWeight: '900' },
-  mutedText: { color: '#94a3b8', fontWeight: '900' },
-  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 18, padding: 14 },
-  assetTicker: { color: '#67e8f9', fontSize: 17, fontWeight: '900' },
+  mutedText: { color: '#94a3b8', fontWeight: '800' },
+  cardTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  cardText: { color: '#cbd5e1', fontSize: 14, lineHeight: 22, marginTop: 8 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
+  sourceText: { color: '#64748b', fontSize: 10, fontWeight: '800' },
+  macroRow: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
+  flex1: { flex: 1 },
+  rowTitle: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  rowText: { color: '#94a3b8', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  macroValueBox: { minWidth: 92, alignItems: 'flex-end' },
+  macroValue: { color: '#22d3ee', fontWeight: '900', fontSize: 18 },
+  newsRow: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
+  inputLabel: { color: '#94a3b8', fontWeight: '800', marginBottom: 8, marginTop: 10 },
+  input: { backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 14, color: '#fff', fontSize: 16 },
+  successBox: { color: '#bbf7d0', backgroundColor: '#16a34a22', borderColor: '#16a34a55', borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 12 },
+  errorBox: { color: '#fecaca', backgroundColor: '#ef444422', borderColor: '#ef444455', borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 12 },
+  disclaimer: { color: '#64748b', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', padding: 14 },
+  assetTicker: { color: '#67e8f9', fontWeight: '900', fontSize: 18 },
   assetNumbers: { alignItems: 'flex-end' },
-  assetPrice: { color: '#f8fafc', fontSize: 14, fontWeight: '900' },
-  watchButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' },
-  watchText: { color: '#67e8f9', fontWeight: '900', fontSize: 16 },
-  screenerRow: { borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 18, padding: 14, gap: 12, flexDirection: 'row', alignItems: 'center' },
-  metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  metric: { color: '#cbd5e1', fontSize: 11, fontWeight: '800', backgroundColor: '#1e293b', paddingHorizontal: 7, paddingVertical: 4, borderRadius: 8 },
-  inputRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#334155', color: '#f8fafc', backgroundColor: '#020617', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  resultText: { color: '#86efac', fontWeight: '900', marginTop: 12 },
-  priceText: { color: '#67e8f9', fontSize: 30, fontWeight: '900', marginVertical: 8 },
-  bullet: { color: '#cbd5e1', fontSize: 14, lineHeight: 22, marginVertical: 3 },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 10, paddingTop: 10, paddingBottom: Platform.OS === 'android' ? 18 : 22, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#1e293b', flexDirection: 'row', gap: 6 },
+  assetPrice: { color: '#fff', fontWeight: '900' },
+  watchButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#22d3ee', alignItems: 'center', justifyContent: 'center' },
+  watchText: { color: '#020617', fontWeight: '900', fontSize: 18 },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  metric: { color: '#e2e8f0', backgroundColor: '#020617', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, fontWeight: '800' },
+  listItem: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 8 },
+  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingTop: 10, paddingBottom: Platform.OS === 'android' ? 18 : 24, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#0f172a' },
   navItem: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14 },
-  navItemActive: { backgroundColor: '#083344' },
-  navText: { color: '#64748b', fontWeight: '900', fontSize: 12 },
+  navItemActive: { backgroundColor: '#0e749022' },
+  navText: { color: '#64748b', fontSize: 11, fontWeight: '900' },
   navTextActive: { color: '#67e8f9' },
 });
