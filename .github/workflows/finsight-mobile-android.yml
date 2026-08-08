@@ -24,7 +24,7 @@ env:
 
 jobs:
   android-build:
-    name: Build signed Android artifacts
+    name: Build locally signed Android artifacts
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,75 +41,121 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package.json
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli@latest
+      - name: Validate Expo dependencies
+        run: npx expo install --check || true
 
-      - name: Check Expo token
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Check signing secrets
+        env:
+          FINSIGHT_UPLOAD_KEYSTORE_BASE64: ${{ secrets.FINSIGHT_UPLOAD_KEYSTORE_BASE64 }}
+          FINSIGHT_UPLOAD_STORE_PASSWORD: ${{ secrets.FINSIGHT_UPLOAD_STORE_PASSWORD }}
+          FINSIGHT_UPLOAD_KEY_ALIAS: ${{ secrets.FINSIGHT_UPLOAD_KEY_ALIAS }}
+          FINSIGHT_UPLOAD_KEY_PASSWORD: ${{ secrets.FINSIGHT_UPLOAD_KEY_PASSWORD }}
         run: |
-          if [ -z "${EXPO_TOKEN}" ]; then
-            echo "EXPO_TOKEN is required. Add it in GitHub → Settings → Secrets and variables → Actions."
+          test -n "$FINSIGHT_UPLOAD_KEYSTORE_BASE64" || (echo "Missing FINSIGHT_UPLOAD_KEYSTORE_BASE64" && exit 1)
+          test -n "$FINSIGHT_UPLOAD_STORE_PASSWORD" || (echo "Missing FINSIGHT_UPLOAD_STORE_PASSWORD" && exit 1)
+          test -n "$FINSIGHT_UPLOAD_KEY_ALIAS" || (echo "Missing FINSIGHT_UPLOAD_KEY_ALIAS" && exit 1)
+          test -n "$FINSIGHT_UPLOAD_KEY_PASSWORD" || (echo "Missing FINSIGHT_UPLOAD_KEY_PASSWORD" && exit 1)
+
+      - name: Configure release signing
+        env:
+          FINSIGHT_UPLOAD_KEYSTORE_BASE64: ${{ secrets.FINSIGHT_UPLOAD_KEYSTORE_BASE64 }}
+          FINSIGHT_UPLOAD_STORE_PASSWORD: ${{ secrets.FINSIGHT_UPLOAD_STORE_PASSWORD }}
+          FINSIGHT_UPLOAD_KEY_ALIAS: ${{ secrets.FINSIGHT_UPLOAD_KEY_ALIAS }}
+          FINSIGHT_UPLOAD_KEY_PASSWORD: ${{ secrets.FINSIGHT_UPLOAD_KEY_PASSWORD }}
+        run: |
+          echo "$FINSIGHT_UPLOAD_KEYSTORE_BASE64" | base64 --decode > android/app/finsight-release-upload.keystore
+          cat >> android/gradle.properties <<EOF
+          FINSIGHT_UPLOAD_STORE_FILE=finsight-release-upload.keystore
+          FINSIGHT_UPLOAD_STORE_PASSWORD=$FINSIGHT_UPLOAD_STORE_PASSWORD
+          FINSIGHT_UPLOAD_KEY_ALIAS=$FINSIGHT_UPLOAD_KEY_ALIAS
+          FINSIGHT_UPLOAD_KEY_PASSWORD=$FINSIGHT_UPLOAD_KEY_PASSWORD
+          EOF
+          keytool -list -keystore android/app/finsight-release-upload.keystore -storepass "$FINSIGHT_UPLOAD_STORE_PASSWORD" -alias "$FINSIGHT_UPLOAD_KEY_ALIAS"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          s = p.read_text()
+          release_config = '''        releaseUpload {
+              storeFile file(FINSIGHT_UPLOAD_STORE_FILE)
+              storePassword FINSIGHT_UPLOAD_STORE_PASSWORD
+              keyAlias FINSIGHT_UPLOAD_KEY_ALIAS
+              keyPassword FINSIGHT_UPLOAD_KEY_PASSWORD
+          }
+          '''
+          if 'releaseUpload {' not in s:
+              marker = '    signingConfigs {\n'
+              if marker not in s:
+                  raise SystemExit('Could not find signingConfigs block in android/app/build.gradle')
+              s = s.replace(marker, marker + release_config, 1)
+          s = s.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.releaseUpload')
+          p.write_text(s)
+          PY
+
+      - name: Build signed APK
+        if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Build signed AAB
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:bundleRelease --no-daemon
+
+      - name: Verify AAB is not debug-signed
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        run: |
+          AAB_FILE=$(ls android/app/build/outputs/bundle/release/*.aab | head -n 1)
+          jarsigner -verify -certs -verbose "$AAB_FILE" > aab-signature-report.txt
+          if grep -q "CN=Android Debug" aab-signature-report.txt; then
+            echo "AAB is debug signed. Refusing to upload artifact."
+            cat aab-signature-report.txt
             exit 1
           fi
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          echo "AAB release signature verified."
 
-      - name: Build signed Play Store AAB with EAS
-        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas build --platform android --profile production --non-interactive --wait --json > eas-aab-build.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('eas-aab-build.json', 'utf8').trim();
-          const parsed = JSON.parse(raw);
-          const build = Array.isArray(parsed) ? parsed[0] : parsed;
-          const url = build?.artifacts?.buildUrl || build?.artifactUrl || build?.artifacts?.applicationArchiveUrl;
-          if (!url) {
-            console.error('Could not find EAS AAB artifact URL in build output.');
-            console.error(raw);
-            process.exit(1);
-          }
-          fs.writeFileSync('eas-aab-url.txt', url);
-          NODE
-          curl -L "$(cat eas-aab-url.txt)" -o finsight-playstore-release-signed.aab
-
-      - name: Build signed internal APK with EAS
+      - name: Verify APK is not debug-signed
         if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          eas build --platform android --profile preview --non-interactive --wait --json > eas-apk-build.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('eas-apk-build.json', 'utf8').trim();
-          const parsed = JSON.parse(raw);
-          const build = Array.isArray(parsed) ? parsed[0] : parsed;
-          const url = build?.artifacts?.buildUrl || build?.artifactUrl || build?.artifacts?.applicationArchiveUrl;
-          if (!url) {
-            console.error('Could not find EAS APK artifact URL in build output.');
-            console.error(raw);
-            process.exit(1);
-          }
-          fs.writeFileSync('eas-apk-url.txt', url);
-          NODE
-          curl -L "$(cat eas-apk-url.txt)" -o finsight-internal-test-signed.apk
-
-      - name: Upload signed Play Store AAB artifact
-        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: finsight-playstore-release-signed-aab
-          path: mobile/finsight-playstore-release-signed.aab
-          if-no-files-found: error
+          APK_FILE=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
+          jarsigner -verify -certs -verbose "$APK_FILE" > apk-signature-report.txt
+          if grep -q "CN=Android Debug" apk-signature-report.txt; then
+            echo "APK is debug signed. Refusing to upload artifact."
+            cat apk-signature-report.txt
+            exit 1
+          fi
+          echo "APK release signature verified."
 
       - name: Upload signed APK artifact
         if: ${{ github.event.inputs.artifact == 'apk' || github.event.inputs.artifact == 'both' }}
         uses: actions/upload-artifact@v4
         with:
-          name: finsight-internal-test-signed-apk
-          path: mobile/finsight-internal-test-signed.apk
+          name: finsight-release-signed-apk-local
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload signed Play Store AAB artifact
+        if: ${{ github.event.inputs.artifact == 'aab' || github.event.inputs.artifact == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-playstore-release-signed-aab-local
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
