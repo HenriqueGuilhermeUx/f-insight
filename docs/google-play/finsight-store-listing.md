@@ -12,6 +12,16 @@
 - **Exclusão de dados:** https://f-insight.netlify.app/excluir-dados
 - **E-mail de suporte/privacidade:** contato@f-insight.org
 
+## App Access / Acesso para revisão Google
+
+Use estes dados na seção **App access** do Play Console:
+
+- O app abre com conteúdo gratuito de mercado sem login.
+- Para testar login comum: toque em **Entrar** ou **Conta**, selecione **Entrar**, informe `notarizex@gmail.com` e qualquer senha com 6 ou mais caracteres.
+- Este acesso libera a visualização Premium de revisão sem cobrança.
+- Para testar criação de conta gratuita: toque em **Criar conta grátis**, preencha nome, e-mail e senha com pelo menos 6 caracteres.
+- Para acessar a área institucional: abra **Mais → Área Logada institucional** e escolha Cliente, Assessor ou Escritório.
+
 ## Descrição curta
 
 Radar financeiro com mercado, macro, notícias, ativos e ferramentas educativas.
@@ -36,13 +46,13 @@ O objetivo do F-Insight é transformar informação financeira em uma experiênc
 - Graham & Valor para estudar margem de segurança
 - Ferramenta educativa de margem de segurança
 - Backtesting e análise de hipóteses
-- Área Premium individual
+- Área Premium individual em modo demonstrativo/revisão no APK atual
 - Área Logada para clientes, assessores e escritórios
 - Links de privacidade, exclusão de dados e exclusão de conta
 
 ### F-Insight Premium
 
-A versão Premium individual foi pensada para usuários que querem aprofundar o uso do F-Insight, com IA financeira completa, screener avançado, carteira simulada, alertas inteligentes, backtesting e relatórios semanais.
+A versão Premium individual foi pensada para usuários que querem aprofundar o uso do F-Insight, com IA financeira completa, screener avançado, carteira simulada, alertas inteligentes, backtesting e relatórios semanais. No Android distribuído pela Play Store, a cobrança comercial deve ser ativada com Google Play Billing antes de vender assinatura dentro do app.
 
 ### Para assessores e escritórios
 
@@ -57,17 +67,17 @@ O F-Insight é uma plataforma informativa e educacional. Não somos analistas de
 1. Acompanhe mercado, índices, dólar, juros e notícias em uma única tela.
 2. Estude ativos com fundamentos, radar, screener e métricas educativas.
 3. Use ferramentas de margem de segurança, backtesting e análise de cenário.
-4. Assine o Premium para IA financeira, alertas, carteira simulada e relatórios.
+4. Veja recursos Premium demonstrativos como IA financeira, alertas, carteira simulada e relatórios.
 5. Acesse áreas específicas para cliente assessorado, assessor ou escritório.
 
 ## Sugestão de screenshots para a Play Store
 
 Gerar screenshots reais a partir do APK/AAB final, preferencialmente nos tamanhos aceitos pelo Play Console.
 
-1. **Dashboard / Hoje** — mostrar cotações, Selic 14,25%, dólar, notícias e resumo do mercado.
+1. **Dashboard / Hoje** — mostrar cotações, Selic online/fallback 14,00%, dólar, notícias e resumo do mercado.
 2. **Radar Brasil** — mostrar PETR4, VALE3, ITUB4, BBAS3, WEGE3 com preços e variações.
 3. **Ativos / Screener** — mostrar P/L, P/VP, DY, ROE e Graham & Valor.
-4. **Mercado / Macro** — mostrar Selic, CDI, IPCA, dólar e leitura educativa.
+4. **Mercado / Macro** — mostrar Selic, IPCA, dólar e leitura educativa.
 5. **Premium** — mostrar IA financeira, screener avançado, carteira simulada, alertas e backtesting.
 6. **Área Logada** — mostrar acessos discretos para Cliente, Assessor e Escritório/Admin.
 
@@ -86,7 +96,7 @@ Gerar screenshots reais a partir do APK/AAB final, preferencialmente nos tamanho
 - E-mail e nome, quando o usuário cria conta ou solicita newsletter.
 - Dados de uso, como watchlist, preferências, alertas e interações.
 - Dados técnicos de diagnóstico, segurança e funcionamento do app.
-- Dados de pagamento podem ser processados por provedor externo quando houver assinatura Premium.
+- Dados de pagamento devem ser processados pelo Google Play Billing quando houver assinatura Premium vendida no Android.
 
 ### Finalidade
 
