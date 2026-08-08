@@ -3,33 +3,26 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://f-insight-api.onrender.com';
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://f-insight.netlify.app';
 
-type AppMode = 'public' | 'client' | 'advisor' | 'office';
-type Section = 'dashboard' | 'radar' | 'ativos' | 'mercado' | 'mais';
+type Tab = 'hoje' | 'radar' | 'ativos' | 'mercado' | 'mais';
+type Tone = 'up' | 'down' | 'neutral' | 'attention';
 
 type LiveIndicator = {
   symbol: string;
   lastPrice: number;
   changePercent: number;
   fetchedAt?: string;
-};
-
-type Insight = {
-  title: string;
-  text: string;
-  tag: string;
 };
 
 const fallbackIndicators: LiveIndicator[] = [
@@ -43,52 +36,64 @@ const fallbackIndicators: LiveIndicator[] = [
   { symbol: 'RENT3.SA', lastPrice: 52.1, changePercent: 1.03 },
 ];
 
-const indexes = [
-  { label: 'IBOV', value: '178.002', change: '0,00%', tone: 'flat' },
-  { label: 'S&P 500', value: '7.600', change: '+1,48%', tone: 'up' },
-  { label: 'Dólar', value: 'R$ 5,10', change: '+0,15%', tone: 'up' },
-  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%', tone: 'up' },
+const marketTiles = [
+  { label: 'IBOV', value: '178.002', change: 'acompanhar', tone: 'neutral' as Tone },
+  { label: 'S&P 500', value: '7.600', change: '+1,48%', tone: 'up' as Tone },
+  { label: 'Dólar', value: 'R$ 5,10', change: '+0,15%', tone: 'up' as Tone },
+  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%', tone: 'up' as Tone },
 ];
 
-const macro = [
-  { label: 'Selic', value: '15,00%', text: 'Custo de oportunidade alto. Renda variável precisa justificar risco.' },
-  { label: 'IPCA', value: '4,2%', text: 'Inflação ainda exige atenção em consumo, varejo e juros reais.' },
-  { label: 'Dólar', value: 'R$ 5,10', text: 'Impacta exportadoras, importadoras, commodities e inflação.' },
+const macroTiles = [
+  { label: 'Selic', value: '15,00%', note: 'Régua alta para comparar risco x retorno.', tone: 'attention' as Tone },
+  { label: 'CDI', value: 'próx. Selic', note: 'Referência diária da renda fixa pós-fixada.', tone: 'neutral' as Tone },
+  { label: 'IPCA', value: 'monitorar', note: 'Inflação influencia juros, consumo e valuation.', tone: 'attention' as Tone },
+  { label: 'IFIX', value: 'radar', note: 'FIIs reagem a juros, P/VP e dividend yield.', tone: 'neutral' as Tone },
 ];
 
-const screener = [
+const news = [
+  { title: 'Mercado acompanha juros, dólar, commodities e temporada de resultados.', source: 'F-Insight Radar', time: 'agora' },
+  { title: 'Bancos, petróleo, mineração e energia seguem entre os setores de maior atenção.', source: 'F-Insight Research', time: 'hoje' },
+  { title: 'Juros altos exigem disciplina em valuation, qualidade e margem de segurança.', source: 'F-Insight Macro', time: 'hoje' },
+];
+
+const screenerRows = [
   { ticker: 'PETR4', name: 'Petrobras PN', pe: '5,1x', pvp: '1,2x', dy: '12,4%', roe: '23%', tag: 'Valor' },
   { ticker: 'BBAS3', name: 'Banco do Brasil ON', pe: '4,8x', pvp: '0,9x', dy: '9,8%', roe: '21%', tag: 'Dividendos' },
   { ticker: 'VALE3', name: 'Vale ON', pe: '6,7x', pvp: '1,4x', dy: '7,1%', roe: '18%', tag: 'Commodities' },
   { ticker: 'ITUB4', name: 'Itaú Unibanco PN', pe: '8,9x', pvp: '1,7x', dy: '6,2%', roe: '20%', tag: 'Qualidade' },
-  { ticker: 'WEGE3', name: 'WEG ON', pe: '32,0x', pvp: '8,4x', dy: '1,5%', roe: '27%', tag: 'Crescimento' },
-];
-
-const insights: Insight[] = [
-  { tag: 'Mercado', title: 'Juros ainda definem a régua', text: 'Com taxa alta, compare retorno esperado de ações com renda fixa antes de assumir risco.' },
-  { tag: 'Fundamentos', title: 'P/L baixo não basta', text: 'Lucro cíclico, dívida, governança e margem importam tanto quanto múltiplos baratos.' },
-  { tag: 'Dividendos', title: 'DY alto precisa de qualidade', text: 'Olhe payout, caixa, previsibilidade e histórico antes de concluir que o dividendo é sustentável.' },
-];
-
-const news = [
-  { title: 'Bolsas globais avançam enquanto mercado monitora juros, commodities e dólar.', source: 'Mercado Global', time: 'agora' },
-  { title: 'Temporada de balanços coloca margens, caixa e endividamento no centro da análise.', source: 'F-Insight Research', time: '2h' },
-  { title: 'Ações ligadas a commodities reagem a câmbio e China; bancos seguem sensíveis à curva de juros.', source: 'Radar Brasil', time: '4h' },
-];
-
-const tools = [
-  { title: 'Margem de segurança', text: 'Compare preço atual e valor estimado como exercício educativo.' },
-  { title: 'Checklist de decisão', text: 'Cenário, risco, prazo, fundamento e adequação antes de agir.' },
-  { title: 'Alertas de preço', text: 'Próxima etapa: avisos quando um ativo atingir preço ou variação relevante.' },
-  { title: 'IA Financeira', text: 'Próxima etapa: explicar indicadores e resumir ativos em linguagem simples.' },
 ];
 
 const learning = [
-  'Preço é uma cotação. Valor é uma estimativa dependente de premissas.',
-  'P/L e P/VP ajudam, mas não substituem análise de qualidade, caixa e risco.',
-  'Dividend yield alto pode ser oportunidade ou alerta de risco. Confira sustentabilidade.',
-  'Juros altos aumentam a régua para renda variável e reduzem tolerância a erro.',
+  'Preço é cotação. Valor depende de premissas, risco e horizonte.',
+  'P/L baixo pode ser oportunidade ou armadilha. Olhe lucro, dívida e ciclo.',
+  'Dividend yield alto precisa de caixa, lucro e payout sustentável.',
+  'Juros altos elevam a régua para renda variável e reduzem tolerância a erro.',
 ];
+
+const premiumFeatures = [
+  'IA Financeira completa',
+  'Screener avançado',
+  'Graham & Valor completo',
+  'Carteira simulada',
+  'Alertas inteligentes',
+  'Backtesting',
+  'Relatórios semanais',
+  'Watchlists ilimitadas',
+];
+
+function openWeb(path: string) {
+  const safePath = path.startsWith('/') ? path : `/${path}`;
+  void Linking.openURL(`${WEB_URL}${safePath}`);
+}
+
+function openLoggedArea() {
+  Alert.alert('Área Logada', 'Escolha qual área deseja acessar:', [
+    { text: 'Cliente', onPress: () => openWeb('/cliente') },
+    { text: 'Assessor', onPress: () => openWeb('/assessor') },
+    { text: 'Escritório/Admin', onPress: () => openWeb('/admin') },
+    { text: 'Cancelar', style: 'cancel' },
+  ]);
+}
 
 function cleanSymbol(symbol: string) {
   return symbol.replace('.SA', '');
@@ -118,11 +123,6 @@ function pct(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}%`;
 }
 
-function parseNumber(value: string) {
-  const parsed = Number(value.replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function clock(value?: string) {
   if (!value) return 'modo educativo';
   const date = new Date(value);
@@ -130,38 +130,36 @@ function clock(value?: string) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-function openWeb(path: string) {
-  const safePath = path.startsWith('/') ? path : `/${path}`;
-  void Linking.openURL(`${WEB_URL}${safePath}`);
+function toneText(tone: Tone) {
+  if (tone === 'up') return styles.greenText;
+  if (tone === 'down') return styles.redText;
+  if (tone === 'attention') return styles.amberText;
+  return styles.mutedText;
 }
 
-function Card({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
-  return <View style={[styles.card, muted && styles.cardMuted]}>{children}</View>;
+function Card({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
+  return <View style={[styles.card, compact && styles.compactCard]}>{children}</View>;
 }
 
-function Badge({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' | 'amber' | 'red' | 'dark' }) {
-  const style = tone === 'green' ? styles.badgeGreen : tone === 'amber' ? styles.badgeAmber : tone === 'red' ? styles.badgeRed : tone === 'dark' ? styles.badgeDark : styles.badgeBlue;
-  return <Text style={[styles.badge, style]}>{children}</Text>;
+function Pill({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'green' | 'amber' | 'dark' }) {
+  const pillStyle = tone === 'green' ? styles.pillGreen : tone === 'amber' ? styles.pillAmber : tone === 'dark' ? styles.pillDark : styles.pillBlue;
+  return <Text style={[styles.pill, pillStyle]}>{children}</Text>;
 }
 
-function SmallButton({ label, onPress, primary = false }: { label: string; onPress: () => void; primary?: boolean }) {
+function Button({ label, onPress, primary = false, amber = false }: { label: string; onPress: () => void; primary?: boolean; amber?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={[styles.smallButton, primary && styles.smallButtonPrimary]}>
-      <Text style={[styles.smallButtonText, primary && styles.smallButtonPrimaryText]}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.button, primary && styles.buttonPrimary, amber && styles.buttonAmber]}>
+      <Text style={[styles.buttonText, (primary || amber) && styles.buttonTextDark]}>{label}</Text>
     </Pressable>
   );
 }
 
 export default function App() {
-  const [section, setSection] = useState<Section>('dashboard');
-  const [mode, setMode] = useState<AppMode>('public');
+  const [tab, setTab] = useState<Tab>('hoje');
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [indicators, setIndicators] = useState<LiveIndicator[]>([]);
   const [watch, setWatch] = useState(['PETR4.SA', 'ITUB4.SA', 'BBAS3.SA']);
-  const [price, setPrice] = useState('28');
-  const [fairValue, setFairValue] = useState('36');
-  const [question, setQuestion] = useState('');
 
   useEffect(() => {
     fetch(`${API_URL}/api/live/indicators`)
@@ -180,65 +178,65 @@ export default function App() {
 
   const marketData = indicators.length > 0 ? indicators : fallbackIndicators;
   const watchedAssets = marketData.filter((item) => watch.includes(item.symbol));
+  const movers = [...marketData].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
   const avgChange = marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length;
 
   const marketMood = useMemo(() => {
-    if (avgChange > 0.6) return { title: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Verifique se o movimento vem de fundamento, fluxo ou notícia.' };
-    if (avgChange < -0.6) return { title: 'Mercado pressionado', text: 'A amostra acompanhada está negativa. Foque em risco, liquidez e qualidade.' };
-    return { title: 'Mercado misto', text: 'Sem direção única. Separe empresas, setores e cenário macro antes de agir.' };
+    if (avgChange > 0.6) return { title: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Confirme fundamento, fluxo e notícia.' };
+    if (avgChange < -0.6) return { title: 'Mercado pressionado', text: 'A amostra está negativa. Foque em risco, liquidez e qualidade.' };
+    return { title: 'Mercado misto', text: 'Sem direção única. Separe empresas, setores, valuation e macro.' };
   }, [avgChange]);
-
-  const margin = useMemo(() => {
-    const current = parseNumber(price);
-    const target = parseNumber(fairValue);
-    if (!current || !target) return null;
-    return ((target - current) / target) * 100;
-  }, [price, fairValue]);
 
   function toggleWatch(symbol: string) {
     setWatch((current) => (current.includes(symbol) ? current.filter((item) => item !== symbol) : [...current, symbol]));
   }
 
-  function askAdvisor() {
-    if (mode === 'public') {
-      Alert.alert('Área logada', 'Entre como cliente para enviar dúvidas ao assessor.');
-      return;
-    }
-    if (!question.trim()) return;
-    Alert.alert('Dúvida registrada', 'Na versão logada, seu assessor recebe essa mensagem como próxima ação.');
-    setQuestion('');
+  function renderHeader() {
+    return (
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.brand}>F-Insight</Text>
+          <Text style={styles.subtitle}>Inteligência financeira</Text>
+        </View>
+        <Pressable onPress={openLoggedArea} style={styles.loggedButton}>
+          <Text style={styles.loggedButtonText}>Área Logada</Text>
+        </Pressable>
+      </View>
+    );
   }
 
-  function renderHeaderCopy() {
-    if (mode === 'client') return 'Cliente assessorado';
-    if (mode === 'advisor') return 'Assessor';
-    if (mode === 'office') return 'Escritório';
-    return 'Público';
-  }
-
-  function renderDashboard() {
+  function renderHoje() {
     return (
       <View style={styles.stack}>
         <Card>
-          <View style={styles.heroTop}>
-            <View style={styles.flex1}>
-              <Text style={styles.kicker}>DADOS EM TEMPO REAL</Text>
-              <Text style={styles.heroTitle}>Inteligência financeira clara para acompanhar o mercado.</Text>
-              <Text style={styles.heroText}>Radar, fundamentos, notícias, macro, alertas e aprendizado. Sem corretora, sem carteira real e sem recomendação automática.</Text>
-              <View style={styles.rowWrap}>
-                <Badge tone={isLive ? 'green' : 'amber'}>{isLive ? 'API ativa' : 'modo educativo'}</Badge>
-                <Badge tone="dark">Atualizado {clock(marketData[0]?.fetchedAt)}</Badge>
-              </View>
-            </View>
+          <View style={styles.heroBadges}>
+            <Pill tone={isLive ? 'green' : 'amber'}>{isLive ? 'API ativa' : 'fallback educativo'}</Pill>
+            <Pill tone="dark">Atualizado {clock(marketData[0]?.fetchedAt)}</Pill>
+          </View>
+          <Text style={styles.heroTitle}>Mercado, macro, notícias e ferramentas para estudar melhor.</Text>
+          <Text style={styles.heroText}>Comece grátis. Aprofunde com Premium. Área logada de assessores e escritórios fica separada.</Text>
+          <View style={styles.buttonRow}>
+            <Button label="Criar conta grátis" primary onPress={() => openWeb('/login')} />
+            <Button label="Premium R$19,90" amber onPress={() => openWeb('/premium')} />
           </View>
         </Card>
 
-        <View style={styles.indexGrid}>
-          {indexes.map((item) => (
-            <View key={item.label} style={styles.indexCard}>
-              <Text style={styles.indexLabel}>{item.label}</Text>
-              <Text style={styles.indexValue}>{item.value}</Text>
-              <Text style={item.tone === 'up' ? styles.greenText : styles.mutedText}>{item.change}</Text>
+        <View style={styles.tileGrid}>
+          {marketTiles.map((item) => (
+            <View key={item.label} style={styles.tile}>
+              <Text style={styles.tileLabel}>{item.label}</Text>
+              <Text style={styles.tileValue}>{item.value}</Text>
+              <Text style={toneText(item.tone)}>{item.change}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.tileGrid}>
+          {macroTiles.map((item) => (
+            <View key={item.label} style={styles.tile}>
+              <Text style={styles.tileLabel}>{item.label}</Text>
+              <Text style={styles.tileValue}>{item.value}</Text>
+              <Text style={toneText(item.tone)}>{item.note}</Text>
             </View>
           ))}
         </View>
@@ -248,26 +246,18 @@ export default function App() {
           <Text style={styles.cardText}>{marketMood.text}</Text>
         </Card>
 
-        <View style={styles.quickGrid}>
-          <Pressable style={styles.quickCard} onPress={() => setSection('radar')}>
-            <Text style={styles.quickIcon}>RA</Text>
-            <Text style={styles.quickTitle}>Radar</Text>
-            <Text style={styles.quickText}>Preço, variação e sinais.</Text>
-          </Pressable>
-          <Pressable style={styles.quickCard} onPress={() => setSection('ativos')}>
-            <Text style={styles.quickIcon}>FU</Text>
-            <Text style={styles.quickTitle}>Fundamentos</Text>
-            <Text style={styles.quickText}>P/L, P/VP, DY e ROE.</Text>
-          </Pressable>
-        </View>
-
-        {insights.map((item) => (
-          <Card key={item.title} muted>
-            <Badge>{item.tag}</Badge>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardText}>{item.text}</Text>
-          </Card>
-        ))}
+        <Card>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Últimas notícias</Text>
+            <Pressable onPress={() => openWeb('/noticias')}><Text style={styles.linkText}>ver</Text></Pressable>
+          </View>
+          {news.map((item) => (
+            <View key={item.title} style={styles.newsRow}>
+              <Text style={styles.newsTitle}>{item.title}</Text>
+              <Text style={styles.newsMeta}>{item.source} · {item.time}</Text>
+            </View>
+          ))}
+        </Card>
       </View>
     );
   }
@@ -275,32 +265,37 @@ export default function App() {
   function renderRadar() {
     return (
       <View style={styles.stack}>
-        <View>
-          <Text style={styles.screenTitle}>Radar de ativos</Text>
-          <Text style={styles.screenSubtitle}>Acompanhe ativos relevantes, salve na lista e observe direção do dia.</Text>
-        </View>
-        {loading ? <ActivityIndicator color="#22d3ee" /> : null}
-        {marketData.map((item) => {
-          const positive = item.changePercent >= 0;
-          const watched = watch.includes(item.symbol);
-          return (
-            <Card key={item.symbol}>
-              <View style={styles.assetRow}>
-                <View style={styles.tickerMark}><Text style={styles.tickerMarkText}>{cleanSymbol(item.symbol).slice(0, 2)}</Text></View>
-                <View style={styles.flex1}>
-                  <Text style={styles.assetTicker}>{cleanSymbol(item.symbol)}</Text>
-                  <Text style={styles.assetName}>{symbolName(item.symbol)}</Text>
-                  <Text style={styles.signalText}>{positive ? 'Sinal: momento positivo no dia' : 'Sinal: pressão no dia'}</Text>
+        <Card>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Radar Brasil</Text>
+            <Pressable onPress={() => openWeb('/radar')}><Text style={styles.linkText}>abrir web</Text></Pressable>
+          </View>
+          {loading && <ActivityIndicator color="#22d3ee" />}
+          {marketData.map((asset) => {
+            const up = asset.changePercent >= 0;
+            const selected = watch.includes(asset.symbol);
+            return (
+              <Pressable key={asset.symbol} onPress={() => toggleWatch(asset.symbol)} style={styles.assetRow}>
+                <View style={styles.assetMain}>
+                  <Text style={styles.assetTicker}>{cleanSymbol(asset.symbol)}</Text>
+                  <Text style={styles.assetName}>{symbolName(asset.symbol)}</Text>
                 </View>
                 <View style={styles.assetRight}>
-                  <Text style={styles.assetPrice}>{money(item.lastPrice)}</Text>
-                  <Text style={positive ? styles.greenTextStrong : styles.redTextStrong}>{pct(item.changePercent)}</Text>
-                  <Pressable onPress={() => toggleWatch(item.symbol)}><Text style={watched ? styles.starActive : styles.star}>★</Text></Pressable>
+                  <Text style={styles.assetPrice}>{money(asset.lastPrice)}</Text>
+                  <Text style={up ? styles.greenText : styles.redText}>{pct(asset.changePercent)}</Text>
                 </View>
-              </View>
-            </Card>
-          );
-        })}
+                <Text style={selected ? styles.starOn : styles.starOff}>{selected ? '★' : '☆'}</Text>
+              </Pressable>
+            );
+          })}
+        </Card>
+
+        <Card>
+          <Text style={styles.cardTitle}>Minha lista</Text>
+          {watchedAssets.length === 0 ? <Text style={styles.cardText}>Toque na estrela de um ativo para acompanhar.</Text> : watchedAssets.map((asset) => (
+            <Text key={asset.symbol} style={styles.watchItem}>{cleanSymbol(asset.symbol)} · {money(asset.lastPrice)} · {pct(asset.changePercent)}</Text>
+          ))}
+        </Card>
       </View>
     );
   }
@@ -308,36 +303,31 @@ export default function App() {
   function renderAtivos() {
     return (
       <View style={styles.stack}>
-        <View>
-          <Text style={styles.screenTitle}>Ativos e fundamentos</Text>
-          <Text style={styles.screenSubtitle}>Screener simplificado para leitura fundamentalista.</Text>
-        </View>
-        {screener.map((row) => (
-          <Card key={row.ticker}>
-            <View style={styles.assetRowTop}>
-              <View>
+        <Card>
+          <Text style={styles.sectionTitle}>Análises e fundamentos</Text>
+          <View style={styles.buttonGrid}>
+            <Button label="Graham & Valor" onPress={() => openWeb('/graham-valor')} />
+            <Button label="Screener" onPress={() => openWeb('/screener-acoes')} />
+            <Button label="Backtesting" onPress={() => openWeb('/backtesting')} />
+            <Button label="IA Financeira" onPress={() => openWeb('/premium')} />
+          </View>
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Amostra do screener</Text>
+          {screenerRows.map((row) => (
+            <View key={row.ticker} style={styles.screenerRow}>
+              <View style={styles.assetMain}>
                 <Text style={styles.assetTicker}>{row.ticker}</Text>
                 <Text style={styles.assetName}>{row.name}</Text>
               </View>
-              <Badge tone="amber">{row.tag}</Badge>
+              <View style={styles.metricsWrap}>
+                <Text style={styles.metric}>P/L {row.pe}</Text>
+                <Text style={styles.metric}>P/VP {row.pvp}</Text>
+                <Text style={styles.metricGreen}>DY {row.dy}</Text>
+              </View>
             </View>
-            <View style={styles.metricsGrid}>
-              <View><Text style={styles.metricLabel}>P/L</Text><Text style={styles.metricValue}>{row.pe}</Text></View>
-              <View><Text style={styles.metricLabel}>P/VP</Text><Text style={styles.metricValue}>{row.pvp}</Text></View>
-              <View><Text style={styles.metricLabel}>DY</Text><Text style={styles.metricValueGreen}>{row.dy}</Text></View>
-              <View><Text style={styles.metricLabel}>ROE</Text><Text style={styles.metricValue}>{row.roe}</Text></View>
-            </View>
-          </Card>
-        ))}
-
-        <Card>
-          <Text style={styles.cardTitle}>Margem de segurança</Text>
-          <Text style={styles.cardText}>Ferramenta educativa para comparar preço atual e valor estimado.</Text>
-          <View style={styles.inputGrid}>
-            <View style={styles.inputBox}><Text style={styles.inputLabel}>Preço</Text><TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" style={styles.input} /></View>
-            <View style={styles.inputBox}><Text style={styles.inputLabel}>Valor</Text><TextInput value={fairValue} onChangeText={setFairValue} keyboardType="decimal-pad" style={styles.input} /></View>
-          </View>
-          <Text style={[styles.bigMetric, (margin || 0) >= 0 ? styles.greenText : styles.redText]}>{margin === null ? '—' : pct(margin)}</Text>
+          ))}
         </Card>
       </View>
     );
@@ -346,25 +336,25 @@ export default function App() {
   function renderMercado() {
     return (
       <View style={styles.stack}>
-        <View>
-          <Text style={styles.screenTitle}>Mercado</Text>
-          <Text style={styles.screenSubtitle}>Notícias, macro e pontos de atenção para o investidor.</Text>
-        </View>
-        {news.map((item) => (
-          <Card key={item.title}>
-            <Badge tone="dark">{item.source} · {item.time}</Badge>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-          </Card>
-        ))}
-        {macro.map((item) => (
-          <Card key={item.label} muted>
-            <View style={styles.assetRowTop}>
-              <Text style={styles.cardTitle}>{item.label}</Text>
-              <Text style={styles.macroValue}>{item.value}</Text>
+        <Card>
+          <Text style={styles.sectionTitle}>Painel macro</Text>
+          {macroTiles.map((item) => (
+            <View key={item.label} style={styles.macroRow}>
+              <View>
+                <Text style={styles.assetTicker}>{item.label}</Text>
+                <Text style={styles.assetName}>{item.note}</Text>
+              </View>
+              <Text style={styles.assetPrice}>{item.value}</Text>
             </View>
-            <Text style={styles.cardText}>{item.text}</Text>
-          </Card>
-        ))}
+          ))}
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Maiores movimentos</Text>
+          {movers.slice(0, 5).map((asset) => (
+            <Text key={asset.symbol} style={styles.watchItem}>{cleanSymbol(asset.symbol)} · {pct(asset.changePercent)} · {symbolName(asset.symbol)}</Text>
+          ))}
+        </Card>
       </View>
     );
   }
@@ -372,176 +362,400 @@ export default function App() {
   function renderMais() {
     return (
       <View style={styles.stack}>
-        <View>
-          <Text style={styles.screenTitle}>Mais</Text>
-          <Text style={styles.screenSubtitle}>Aprenda, configure alertas e acesse a área logada quando fizer sentido.</Text>
-        </View>
-
         <Card>
-          <View style={styles.assetRowTop}>
-            <View>
-              <Text style={styles.cardTitle}>Área Logada</Text>
-              <Text style={styles.cardText}>Discreta e separada do conteúdo público. Escolha seu acesso.</Text>
-            </View>
-            <Badge tone="green">{renderHeaderCopy()}</Badge>
+          <Text style={styles.sectionTitle}>Premium R$ 19,90/mês</Text>
+          <Text style={styles.cardText}>Para investidores independentes que querem IA completa, ferramentas profundas e carteira simulada.</Text>
+          <View style={styles.featureList}>
+            {premiumFeatures.map((item) => <Text key={item} style={styles.featureItem}>✓ {item}</Text>)}
           </View>
-          <View style={styles.loginGrid}>
-            <SmallButton label="Cliente" onPress={() => { setMode('client'); openWeb('/cliente/app'); }} primary />
-            <SmallButton label="Assessor" onPress={() => { setMode('advisor'); openWeb('/assessor'); }} />
-            <SmallButton label="Escritório" onPress={() => { setMode('office'); openWeb('/admin'); }} />
-          </View>
+          <Button label="Conhecer Premium" amber onPress={() => openWeb('/premium')} />
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>Ferramentas úteis</Text>
-          {tools.map((tool) => (
-            <View key={tool.title} style={styles.listItem}>
-              <Text style={styles.listTitle}>{tool.title}</Text>
-              <Text style={styles.cardText}>{tool.text}</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Área Logada</Text>
+          <Text style={styles.cardText}>Cliente assessorado, assessor, escritório e admin entram por uma área separada.</Text>
+          <Button label="Abrir Área Logada" primary onPress={openLoggedArea} />
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>Aprender</Text>
-          {learning.map((item, index) => (
-            <View key={item} style={styles.learnRow}>
-              <Text style={styles.learnNumber}>{index + 1}</Text>
-              <Text style={styles.learnText}>{item}</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Aprender</Text>
+          {learning.map((item) => <Text key={item} style={styles.featureItem}>• {item}</Text>)}
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>Perguntar ao assessor</Text>
-          <Text style={styles.cardText}>Disponível para cliente logado. No modo público, use apenas como rascunho.</Text>
-          <TextInput
-            value={question}
-            onChangeText={setQuestion}
-            placeholder="Digite sua dúvida..."
-            placeholderTextColor="#64748b"
-            multiline
-            style={[styles.input, styles.textArea]}
-          />
-          <Pressable onPress={askAdvisor} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Enviar dúvida</Text></Pressable>
+          <Text style={styles.disclaimer}>Informações educativas. Não constituem recomendação de investimento, consultoria individualizada ou garantia de rentabilidade.</Text>
         </Card>
       </View>
     );
   }
 
-  const content = section === 'dashboard' ? renderDashboard() : section === 'radar' ? renderRadar() : section === 'ativos' ? renderAtivos() : section === 'mercado' ? renderMercado() : renderMais();
+  const content = tab === 'hoje' ? renderHoje() : tab === 'radar' ? renderRadar() : tab === 'ativos' ? renderAtivos() : tab === 'mercado' ? renderMercado() : renderMais();
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#020617" />
-      <View style={styles.header}>
-        <View style={styles.logoMark}><Text style={styles.logoMarkText}>FI</Text></View>
-        <View style={styles.flex1}>
-          <Text style={styles.logoText}>F-Insight</Text>
-          <Text style={styles.logoSub}>Inteligência financeira</Text>
-        </View>
-        <Pressable onPress={() => setSection('mais')} style={styles.loggedButton}><Text style={styles.loggedButtonText}>Área Logada</Text></Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>{content}</ScrollView>
-
-      <View style={styles.bottomNav}>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#020617" translucent={false} />
+      {renderHeader()}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {content}
+      </ScrollView>
+      <View style={styles.tabBar}>
         {([
-          ['dashboard', 'Dashboard'],
+          ['hoje', 'Hoje'],
           ['radar', 'Radar'],
           ['ativos', 'Ativos'],
           ['mercado', 'Mercado'],
           ['mais', 'Mais'],
-        ] as Array<[Section, string]>).map(([key, label]) => (
-          <Pressable key={key} onPress={() => setSection(key)} style={[styles.navItem, section === key && styles.navItemActive]}>
-            <Text style={[styles.navLabel, section === key && styles.navLabelActive]}>{label}</Text>
+        ] as [Tab, string][]).map(([key, label]) => (
+          <Pressable key={key} onPress={() => setTab(key)} style={styles.tabItem}>
+            <Text style={tab === key ? styles.tabTextActive : styles.tabText}>{label}</Text>
           </Pressable>
         ))}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
+const safeTop = Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
+const safeBottom = Platform.OS === 'android' ? 18 : 28;
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#020617' },
-  flex1: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#0f172a', backgroundColor: '#020617' },
-  logoMark: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#0891b2', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  logoMarkText: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  logoText: { color: '#fff', fontSize: 20, fontWeight: '900' },
-  logoSub: { color: '#64748b', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  loggedButton: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#0f172a', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 },
-  loggedButtonText: { color: '#cbd5e1', fontSize: 11, fontWeight: '900' },
-  scroll: { padding: 16, paddingBottom: 112 },
-  stack: { gap: 14 },
-  heroTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  kicker: { color: '#22d3ee', fontSize: 11, fontWeight: '900', letterSpacing: 1.7, marginBottom: 8 },
-  heroTitle: { color: '#fff', fontSize: 30, lineHeight: 36, fontWeight: '900' },
-  heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 22, marginTop: 12, marginBottom: 14 },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  card: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 16 },
-  cardMuted: { backgroundColor: '#0b1220' },
-  cardTitle: { color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 7 },
-  cardText: { color: '#94a3b8', fontSize: 14, lineHeight: 20 },
-  badge: { alignSelf: 'flex-start', borderRadius: 999, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, marginRight: 8, marginBottom: 10, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
-  badgeBlue: { backgroundColor: '#155e7522', color: '#67e8f9' },
-  badgeGreen: { backgroundColor: '#16a34a22', color: '#86efac' },
-  badgeAmber: { backgroundColor: '#f59e0b22', color: '#fcd34d' },
-  badgeRed: { backgroundColor: '#dc262622', color: '#fca5a5' },
-  badgeDark: { backgroundColor: '#1e293b', color: '#cbd5e1' },
-  indexGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 },
-  indexCard: { width: '50%', padding: 5 },
-  indexLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1.1 },
-  indexValue: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 7 },
-  mutedText: { color: '#94a3b8', fontWeight: '900', marginTop: 4 },
-  greenText: { color: '#34d399' },
-  redText: { color: '#f87171' },
-  greenTextStrong: { color: '#34d399', fontWeight: '900', marginTop: 5 },
-  redTextStrong: { color: '#f87171', fontWeight: '900', marginTop: 5 },
-  quickGrid: { flexDirection: 'row', gap: 12 },
-  quickCard: { flex: 1, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 22, padding: 14 },
-  quickIcon: { color: '#22d3ee', fontWeight: '900', fontSize: 17, marginBottom: 12 },
-  quickTitle: { color: '#fff', fontWeight: '900', fontSize: 16 },
-  quickText: { color: '#94a3b8', fontSize: 12, marginTop: 5, lineHeight: 17 },
-  screenTitle: { color: '#fff', fontSize: 29, fontWeight: '900' },
-  screenSubtitle: { color: '#94a3b8', fontSize: 15, lineHeight: 22, marginTop: 5 },
-  assetRow: { flexDirection: 'row', alignItems: 'center' },
-  assetRowTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  tickerMark: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#155e75', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  tickerMarkText: { color: '#67e8f9', fontWeight: '900' },
-  assetTicker: { color: '#fff', fontSize: 17, fontWeight: '900' },
-  assetName: { color: '#94a3b8', fontSize: 12, marginTop: 3 },
-  signalText: { color: '#64748b', fontSize: 11, marginTop: 6, fontWeight: '800' },
-  assetRight: { alignItems: 'flex-end', marginLeft: 10 },
-  assetPrice: { color: '#fff', fontWeight: '900', fontSize: 14 },
-  star: { color: '#64748b', fontSize: 20, marginTop: 5 },
-  starActive: { color: '#facc15', fontSize: 20, marginTop: 5 },
-  metricsGrid: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#1e293b', marginTop: 14, paddingTop: 14 },
-  metricLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', marginBottom: 4 },
-  metricValue: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  metricValueGreen: { color: '#34d399', fontSize: 14, fontWeight: '900' },
-  inputGrid: { flexDirection: 'row', marginTop: 12 },
-  inputBox: { flex: 1, marginRight: 8 },
-  inputLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '800', marginBottom: 6 },
-  input: { backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 11, color: '#fff', fontSize: 15 },
-  textArea: { minHeight: 98, textAlignVertical: 'top', marginTop: 12 },
-  bigMetric: { color: '#fff', fontSize: 36, fontWeight: '900', marginTop: 12 },
-  macroValue: { color: '#22d3ee', fontSize: 18, fontWeight: '900' },
-  loginGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14 },
-  smallButton: { borderWidth: 1, borderColor: '#334155', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginRight: 8, marginBottom: 8, backgroundColor: '#020617' },
-  smallButtonPrimary: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
-  smallButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
-  smallButtonPrimaryText: { color: '#020617' },
-  listItem: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
-  listTitle: { color: '#fff', fontSize: 15, fontWeight: '900', marginBottom: 3 },
-  learnRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
-  learnNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#155e75', color: '#67e8f9', textAlign: 'center', lineHeight: 28, fontWeight: '900', marginRight: 10 },
-  learnText: { flex: 1, color: '#cbd5e1', lineHeight: 20, fontSize: 14 },
-  primaryButton: { marginTop: 12, borderRadius: 16, backgroundColor: '#22d3ee', paddingVertical: 13, alignItems: 'center' },
-  primaryButtonText: { color: '#020617', fontWeight: '900' },
-  bottomNav: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 8, flexDirection: 'row' },
-  navItem: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 16 },
-  navItemActive: { backgroundColor: '#082f49' },
-  navLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '900' },
-  navLabelActive: { color: '#22d3ee' },
+  root: {
+    flex: 1,
+    paddingTop: safeTop,
+    backgroundColor: '#020617',
+  },
+  header: {
+    minHeight: 64,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#020617',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brand: {
+    color: '#f8fafc',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  subtitle: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  loggedButton: {
+    borderWidth: 1,
+    borderColor: '#10b98155',
+    backgroundColor: '#10b98118',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  loggedButtonText: {
+    color: '#6ee7b7',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 14,
+    paddingBottom: 108 + safeBottom,
+  },
+  stack: {
+    gap: 14,
+  },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    backgroundColor: '#0f172a',
+    padding: 16,
+  },
+  compactCard: {
+    padding: 12,
+  },
+  heroBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  pill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    overflow: 'hidden',
+  },
+  pillBlue: { color: '#67e8f9', backgroundColor: '#06b6d420' },
+  pillGreen: { color: '#6ee7b7', backgroundColor: '#10b98122' },
+  pillAmber: { color: '#fcd34d', backgroundColor: '#f59e0b22' },
+  pillDark: { color: '#94a3b8', backgroundColor: '#020617' },
+  heroTitle: {
+    color: '#f8fafc',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+  },
+  heroText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 10,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  button: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#020617',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonPrimary: {
+    backgroundColor: '#22d3ee',
+    borderColor: '#22d3ee',
+  },
+  buttonAmber: {
+    backgroundColor: '#fbbf24',
+    borderColor: '#fbbf24',
+  },
+  buttonText: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  buttonTextDark: {
+    color: '#020617',
+  },
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tile: {
+    width: '48%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    backgroundColor: '#0f172a',
+    padding: 14,
+    minHeight: 116,
+  },
+  tileLabel: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  tileValue: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  greenText: { color: '#34d399', fontSize: 12, fontWeight: '900' },
+  redText: { color: '#fb7185', fontSize: 12, fontWeight: '900' },
+  amberText: { color: '#fbbf24', fontSize: 12, fontWeight: '800', lineHeight: 17 },
+  mutedText: { color: '#94a3b8', fontSize: 12, fontWeight: '800', lineHeight: 17 },
+  cardTitle: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  cardText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  linkText: {
+    color: '#67e8f9',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  newsRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  newsTitle: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  newsMeta: {
+    color: '#64748b',
+    fontSize: 11,
+    marginTop: 5,
+    fontWeight: '700',
+  },
+  assetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    paddingVertical: 13,
+  },
+  assetMain: {
+    flex: 1,
+  },
+  assetRight: {
+    alignItems: 'flex-end',
+  },
+  assetTicker: {
+    color: '#67e8f9',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  assetName: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  assetPrice: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  starOn: {
+    color: '#fbbf24',
+    fontSize: 22,
+    width: 24,
+    textAlign: 'center',
+  },
+  starOff: {
+    color: '#475569',
+    fontSize: 22,
+    width: 24,
+    textAlign: 'center',
+  },
+  watchItem: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  screenerRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    paddingVertical: 12,
+  },
+  metricsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 8,
+  },
+  metric: {
+    color: '#cbd5e1',
+    backgroundColor: '#020617',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  metricGreen: {
+    color: '#6ee7b7',
+    backgroundColor: '#10b98118',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  macroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    paddingVertical: 12,
+  },
+  featureList: {
+    marginTop: 12,
+    marginBottom: 12,
+    gap: 7,
+  },
+  featureItem: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  disclaimer: {
+    color: '#64748b',
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 10,
+    paddingBottom: safeBottom,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    backgroundColor: '#020617',
+    flexDirection: 'row',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  tabText: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  tabTextActive: {
+    color: '#22d3ee',
+    fontSize: 11,
+    fontWeight: '900',
+  },
 });
