@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
-  BarChart3,
   Bell,
   Brain,
   Calculator,
@@ -59,15 +58,15 @@ export default function PremiumIndividual() {
               O Premium é para o investidor que não veio por um escritório ou assessor e quer usar o F-Insight como copiloto financeiro educacional: IA completa, screener, Graham & Valor, alertas, carteira simulada e backtesting.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300">
-                Criar conta e ativar Premium
+              <Link to="/cadastro-gratis?mode=signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300">
+                Criar conta grátis
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to="/app" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/60 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white transition-colors hover:border-amber-400/60">
                 Abrir app gratuito
               </Link>
             </div>
-            <p className="mt-4 text-xs font-semibold text-slate-500">Conteúdo educativo · Sem recomendação individualizada · Cancele quando quiser</p>
+            <p className="mt-4 text-xs font-semibold text-slate-500">Premium comercial no Android deve usar Google Play Billing · Conteúdo educativo · Sem recomendação individualizada</p>
           </div>
 
           <div className="rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-6 text-center">
