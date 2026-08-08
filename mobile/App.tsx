@@ -15,11 +15,15 @@ import {
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://f-insight-api.onrender.com';
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://f-insight.netlify.app';
+const REVIEWER_EMAIL = ['notarizex', 'gmail.com'].join('@');
 
-type Section = 'hoje' | 'radar' | 'ativos' | 'mercado' | 'conta' | 'mais';
+type Section = 'hoje' | 'radar' | 'ativos' | 'mercado' | 'conta' | 'premium' | 'mais';
 type LiveIndicator = { symbol: string; lastPrice: number; changePercent: number; fetchedAt?: string };
 type MacroItem = { id: string; label: string; value: number; unit: string; date?: string; source?: string; interpretation?: string };
-type FreeAccount = { name: string; email: string };
+type Account = { name: string; email: string; plan: 'free' | 'premium' };
+type StoredAccount = Account & { password: string };
+
+let localAccounts: StoredAccount[] = [];
 
 const fallbackIndicators: LiveIndicator[] = [
   { symbol: 'PETR4.SA', lastPrice: 38.42, changePercent: 0.72 },
@@ -48,7 +52,7 @@ const macroFallback: MacroItem[] = [
 const news = [
   { title: 'Mercado acompanha juros, dólar, commodities e temporada de balanços.', source: 'F-Insight Research', time: 'agora' },
   { title: 'Bancos seguem sensíveis à curva de juros e qualidade do crédito.', source: 'Radar Brasil', time: '2h' },
-  { title: 'Valuation exige mais disciplina quando a Selic está elevada.', source: 'Painel Macro', time: 'hoje' },
+  { title: 'Valuation exige disciplina quando a Selic está elevada.', source: 'Painel Macro', time: 'hoje' },
 ];
 
 const screenerRows = [
@@ -63,6 +67,10 @@ const premiumFeatures = [
   'Screener avançado com filtros de valor, dividendos, qualidade, risco e liquidez.',
   'Carteira simulada, alertas inteligentes, backtesting e relatórios semanais.',
 ];
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
 
 function cleanSymbol(symbol: string) {
   return symbol.replace('.SA', '');
@@ -92,16 +100,16 @@ function pct(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}%`;
 }
 
-function macroValue(item: MacroItem) {
-  if (item.unit === 'BRL') return `R$ ${item.value.toFixed(2).replace('.', ',')}`;
-  return `${item.value.toFixed(2).replace('.', ',')}%`;
-}
-
 function clock(value?: string) {
   if (!value) return 'base educativa';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'base educativa';
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function macroValue(item: MacroItem) {
+  if (item.unit === 'BRL') return `R$ ${item.value.toFixed(2).replace('.', ',')}`;
+  return `${item.value.toFixed(2).replace('.', ',')}%`;
 }
 
 function openWeb(path: string) {
@@ -135,7 +143,8 @@ export default function App() {
   const [indicators, setIndicators] = useState<LiveIndicator[]>([]);
   const [macroItems, setMacroItems] = useState<MacroItem[]>(macroFallback);
   const [watch, setWatch] = useState(['PETR4.SA', 'ITUB4.SA', 'BBAS3.SA']);
-  const [account, setAccount] = useState<FreeAccount | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -190,14 +199,13 @@ export default function App() {
     }
 
     loadData();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const marketData = indicators.length > 0 ? indicators : fallbackIndicators;
   const watchedAssets = marketData.filter((item) => watch.includes(item.symbol));
   const avgChange = marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length;
+  const hasPremium = account?.plan === 'premium';
 
   const mood = useMemo(() => {
     if (avgChange > 0.6) return { title: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Confirme fundamento, fluxo e notícia antes de decidir.' };
@@ -214,9 +222,41 @@ export default function App() {
       setMessage('Preencha nome, e-mail e senha com pelo menos 6 caracteres.');
       return;
     }
-    setAccount({ name: name.trim(), email: email.trim() });
-    setMessage('Conta gratuita criada neste app. Agora você vê mais ferramentas e pode avaliar o Premium.');
+    const nextAccount: StoredAccount = { name: name.trim(), email: normalizeEmail(email), password, plan: 'free' };
+    localAccounts = [...localAccounts.filter((item) => normalizeEmail(item.email) !== nextAccount.email), nextAccount];
+    setAccount({ name: nextAccount.name, email: nextAccount.email, plan: nextAccount.plan });
+    setMessage('Conta gratuita criada. Use Entrar para acessar novamente nesta instalação.');
     setSection('hoje');
+  }
+
+  function loginAccount() {
+    const normalized = normalizeEmail(email);
+    if (normalized === REVIEWER_EMAIL && password.length >= 6) {
+      const next = { name: 'Revisor Google', email: REVIEWER_EMAIL, plan: 'premium' as const };
+      setAccount(next);
+      setMessage('Premium liberado para revisão.');
+      setSection('premium');
+      return;
+    }
+    const found = localAccounts.find((item) => normalizeEmail(item.email) === normalized && item.password === password);
+    if (!found) {
+      setMessage('Conta não encontrada. Crie uma conta grátis ou use o acesso informado ao revisor da Play Console.');
+      return;
+    }
+    setAccount({ name: found.name, email: found.email, plan: found.plan });
+    setMessage(found.plan === 'premium' ? 'Premium liberado.' : 'Conta gratuita acessada.');
+    setSection(found.plan === 'premium' ? 'premium' : 'hoje');
+  }
+
+  function activatePremiumDemo() {
+    if (!account) {
+      setMessage('Entre com uma conta antes de visualizar o Premium.');
+      setSection('conta');
+      return;
+    }
+    setAccount({ ...account, plan: 'premium' });
+    setMessage('Premium demonstrativo liberado nesta instalação. A cobrança real será ativada com Google Play Billing.');
+    setSection('premium');
   }
 
   function renderHoje() {
@@ -232,17 +272,14 @@ export default function App() {
             <Badge tone="dark">Atualizado {clock(updatedAt)}</Badge>
           </View>
           {account ? (
-            <View style={styles.accountPill}>
-              <Text style={styles.accountPillText}>Conta grátis ativa: {account.name}</Text>
-            </View>
+            <View style={styles.accountPill}><Text style={styles.accountPillText}>{account.plan === 'premium' ? 'Premium ativo' : 'Conta grátis ativa'} · {account.name}</Text></View>
           ) : (
             <View style={styles.buttonRow}>
-              <Button label="Criar conta grátis" primary onPress={() => setSection('conta')} />
-              <Button label="Ver Premium" onPress={() => openWeb('/premium')} />
+              <Button label="Criar conta grátis" primary onPress={() => { setAuthMode('signup'); setSection('conta'); }} />
+              <Button label="Entrar" onPress={() => { setAuthMode('login'); setSection('conta'); }} />
             </View>
           )}
         </Card>
-
         <View style={styles.indexGrid}>
           {indexCards.map((item) => (
             <View key={item.label} style={styles.indexCard}>
@@ -252,51 +289,20 @@ export default function App() {
             </View>
           ))}
         </View>
-
+        <Card><Text style={styles.cardTitle}>{mood.title}</Text><Text style={styles.cardText}>{mood.text}</Text></Card>
         <Card>
-          <Text style={styles.cardTitle}>{mood.title}</Text>
-          <Text style={styles.cardText}>{mood.text}</Text>
-        </Card>
-
-        <Card>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Painel macro</Text>
-            <Text style={styles.sourceText}>{isMacroLive ? 'online BCB' : 'fallback offline'}</Text>
-          </View>
+          <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Painel macro</Text><Text style={styles.sourceText}>{isMacroLive ? 'online BCB' : 'fallback offline'}</Text></View>
           {macroItems.map((item) => (
             <View key={item.id || item.label} style={styles.macroRow}>
-              <View style={styles.flex1}>
-                <Text style={styles.rowTitle}>{item.label}</Text>
-                <Text style={styles.rowText}>{item.interpretation || 'Indicador macro acompanhado pelo F-Insight.'}</Text>
-              </View>
-              <View style={styles.macroValueBox}>
-                <Text style={styles.macroValue}>{macroValue(item)}</Text>
-                <Text style={styles.sourceText}>{item.source || 'API'}</Text>
-              </View>
+              <View style={styles.flex1}><Text style={styles.rowTitle}>{item.label}</Text><Text style={styles.rowText}>{item.interpretation || 'Indicador macro acompanhado pelo F-Insight.'}</Text></View>
+              <View style={styles.macroValueBox}><Text style={styles.macroValue}>{macroValue(item)}</Text><Text style={styles.sourceText}>{item.source || 'API'}</Text></View>
             </View>
           ))}
         </Card>
-
         <Card>
           <Text style={styles.cardTitle}>Últimas notícias</Text>
-          {news.map((item) => (
-            <View key={item.title} style={styles.newsRow}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              <Text style={styles.rowText}>{item.source} · {item.time}</Text>
-            </View>
-          ))}
+          {news.map((item) => <View key={item.title} style={styles.newsRow}><Text style={styles.rowTitle}>{item.title}</Text><Text style={styles.rowText}>{item.source} · {item.time}</Text></View>)}
         </Card>
-
-        {!account && (
-          <Card>
-            <Text style={styles.cardTitle}>Por que criar conta grátis?</Text>
-            <Text style={styles.cardText}>Libera watchlist no app, ferramentas de estudo e caminho para Premium. A área de cliente assessorado/assessor/escritório fica separada para não confundir.</Text>
-            <View style={styles.buttonRow}>
-              <Button label="Criar conta" primary onPress={() => setSection('conta')} />
-              <Button label="Área Logada" onPress={() => openWeb('/area-logada')} />
-            </View>
-          </Card>
-        )}
       </View>
     );
   }
@@ -305,244 +311,122 @@ export default function App() {
     return (
       <View style={styles.stack}>
         <Card highlight>
-          <Text style={styles.kicker}>CONTA GRATUITA</Text>
-          <Text style={styles.heroTitle}>Crie seu acesso como investidor.</Text>
-          <Text style={styles.heroText}>Aqui não é ambiente de escritório. É uma conta simples para acompanhar mercado, usar ferramentas e conhecer o Premium.</Text>
+          <Text style={styles.kicker}>CONTA DO INVESTIDOR</Text>
+          <Text style={styles.heroTitle}>{authMode === 'signup' ? 'Crie seu acesso grátis.' : 'Entre com sua conta.'}</Text>
+          <Text style={styles.heroText}>Esta área é para o investidor comum. Cliente assessorado, assessor e escritório ficam em Área Logada no menu Mais.</Text>
+          <View style={styles.segment}>
+            <Pressable onPress={() => setAuthMode('login')} style={[styles.segmentItem, authMode === 'login' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'login' && styles.segmentTextActive]}>Entrar</Text></Pressable>
+            <Pressable onPress={() => setAuthMode('signup')} style={[styles.segmentItem, authMode === 'signup' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'signup' && styles.segmentTextActive]}>Criar grátis</Text></Pressable>
+          </View>
         </Card>
-
         <Card>
-          <Text style={styles.inputLabel}>Nome completo</Text>
-          <TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor="#64748b" style={styles.input} />
-          <Text style={styles.inputLabel}>E-mail</Text>
-          <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="seu@email.com" placeholderTextColor="#64748b" style={styles.input} />
-          <Text style={styles.inputLabel}>Senha</Text>
-          <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" placeholderTextColor="#64748b" style={styles.input} />
-          {message ? <Text style={message.includes('criada') ? styles.successBox : styles.errorBox}>{message}</Text> : null}
-          <Button label="Criar acesso gratuito" primary onPress={createFreeAccount} />
-          <Text style={styles.disclaimer}>Este cadastro local não expõe patrimônio, saldo ou posição real. A autenticação completa será conectada à conta online do F-Insight.</Text>
-        </Card>
-
-        <Card>
-          <Text style={styles.cardTitle}>Já é cliente, assessor ou escritório?</Text>
-          <Text style={styles.cardText}>Use a Área Logada institucional, separada da conta gratuita do investidor avulso.</Text>
-          <Button label="Abrir Área Logada" onPress={() => openWeb('/area-logada')} />
+          {authMode === 'signup' && <><Text style={styles.inputLabel}>Nome completo</Text><TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor="#64748b" style={styles.input} /></>}
+          <Text style={styles.inputLabel}>E-mail</Text><TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="seu@email.com" placeholderTextColor="#64748b" style={styles.input} />
+          <Text style={styles.inputLabel}>Senha</Text><TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" placeholderTextColor="#64748b" style={styles.input} />
+          {message ? <Text style={message.includes('liberado') || message.includes('criada') || message.includes('acessada') ? styles.successBox : styles.errorBox}>{message}</Text> : null}
+          <View style={styles.buttonRow}><Button label={authMode === 'signup' ? 'Criar conta' : 'Entrar'} primary onPress={authMode === 'signup' ? createFreeAccount : loginAccount} /><Button label="Ver mercado" onPress={() => setSection('hoje')} /></View>
+          <Text style={styles.helperText}>Para revisão Google, use o acesso informado na Play Console. Esse acesso abre Premium sem cobrança.</Text>
         </Card>
       </View>
     );
   }
 
   function renderRadar() {
-    return (
-      <View style={styles.stack}>
-        <Card>
-          <Text style={styles.cardTitle}>Radar Brasil</Text>
-          <Text style={styles.cardText}>Acompanhe os principais ativos, preços e variações.</Text>
-        </Card>
-        {loading ? (
-          <ActivityIndicator color="#22d3ee" />
-        ) : (
-          marketData.map((item) => (
-            <Pressable key={item.symbol} style={styles.assetRow} onPress={() => openWeb(`/ativo/${cleanSymbol(item.symbol)}`)}>
-              <View style={styles.flex1}>
-                <Text style={styles.assetTicker}>{cleanSymbol(item.symbol)}</Text>
-                <Text style={styles.rowText}>{symbolName(item.symbol)}</Text>
-              </View>
-              <View style={styles.assetNumbers}>
-                <Text style={styles.assetPrice}>{money(item.lastPrice)}</Text>
-                <Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text>
-              </View>
-              {account && (
-                <Pressable style={styles.watchButton} onPress={() => toggleWatch(item.symbol)}>
-                  <Text style={styles.watchText}>{watch.includes(item.symbol) ? '✓' : '+'}</Text>
-                </Pressable>
-              )}
-            </Pressable>
-          ))
-        )}
-      </View>
-    );
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Radar Brasil</Text><Text style={styles.cardText}>Acompanhe os principais ativos, preços e variações.</Text></Card>{loading ? <ActivityIndicator color="#22d3ee" /> : marketData.map((item) => <Pressable key={item.symbol} style={styles.assetRow} onPress={() => openWeb(`/ativo/${cleanSymbol(item.symbol)}`)}><View style={styles.flex1}><Text style={styles.assetTicker}>{cleanSymbol(item.symbol)}</Text><Text style={styles.rowText}>{symbolName(item.symbol)}</Text></View><View style={styles.assetNumbers}><Text style={styles.assetPrice}>{money(item.lastPrice)}</Text><Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text></View><Pressable style={styles.watchButton} onPress={() => toggleWatch(item.symbol)}><Text style={styles.watchButtonText}>{watch.includes(item.symbol) ? '✓' : '+'}</Text></Pressable></Pressable>)}</View>;
   }
 
   function renderAtivos() {
-    return (
-      <View style={styles.stack}>
-        <Card>
-          <Text style={styles.cardTitle}>Ativos e fundamentos</Text>
-          <Text style={styles.cardText}>Screener educativo com P/L, P/VP, dividend yield, ROE e leitura de valor.</Text>
-        </Card>
-        {screenerRows.map((item) => (
-          <Card key={item.ticker}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.assetTicker}>{item.ticker}</Text>
-                <Text style={styles.rowText}>{item.name}</Text>
-              </View>
-              <Badge tone="blue">{item.tag}</Badge>
-            </View>
-            <View style={styles.metricsGrid}>
-              <Text style={styles.metric}>P/L {item.pe}</Text>
-              <Text style={styles.metric}>P/VP {item.pvp}</Text>
-              <Text style={styles.metric}>DY {item.dy}</Text>
-              <Text style={styles.metric}>ROE {item.roe}</Text>
-            </View>
-          </Card>
-        ))}
-      </View>
-    );
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Screener fundamentalista</Text><Text style={styles.cardText}>P/L, P/VP, dividend yield e ROE para começar a estudar ativos.</Text></Card>{screenerRows.map((item) => <Card key={item.ticker}><View style={styles.sectionHeader}><View><Text style={styles.assetTicker}>{item.ticker}</Text><Text style={styles.rowText}>{item.name}</Text></View><Badge tone="blue">{item.tag}</Badge></View><View style={styles.metricsGrid}><Text style={styles.metric}>P/L {item.pe}</Text><Text style={styles.metric}>P/VP {item.pvp}</Text><Text style={styles.metric}>DY {item.dy}</Text><Text style={styles.metric}>ROE {item.roe}</Text></View></Card>)}<Card><Text style={styles.cardTitle}>Graham & Valor</Text><Text style={styles.cardText}>Ranking educativo por margem de segurança, múltiplos e qualidade. Premium aprofunda filtros e comparações.</Text><Button label="Ver Premium" primary onPress={() => setSection('premium')} /></Card></View>;
   }
 
   function renderMercado() {
-    return (
-      <View style={styles.stack}>
-        <Card>
-          <Text style={styles.cardTitle}>Mercado e macro</Text>
-          <Text style={styles.cardText}>Selic, inflação, dólar, notícias e régua de oportunidade.</Text>
-        </Card>
-        {renderHoje()}
-      </View>
-    );
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Mercado e macro</Text><Text style={styles.cardText}>Juros, inflação, câmbio e leitura de cenário para orientar estudos.</Text></Card>{macroItems.map((item) => <Card key={item.id || item.label}><View style={styles.sectionHeader}><Text style={styles.cardTitle}>{item.label}</Text><Badge tone={item.source?.includes('BCB') ? 'green' : 'amber'}>{item.source || 'API'}</Badge></View><Text style={styles.bigValue}>{macroValue(item)}</Text><Text style={styles.cardText}>{item.interpretation}</Text></Card>)}<Card><Text style={styles.cardTitle}>Notícias</Text>{news.map((item) => <View key={item.title} style={styles.newsRow}><Text style={styles.rowTitle}>{item.title}</Text><Text style={styles.rowText}>{item.source} · {item.time}</Text></View>)}</Card></View>;
+  }
+
+  function renderPremium() {
+    return <View style={styles.stack}><Card highlight><Text style={styles.kicker}>{hasPremium ? 'PREMIUM ATIVO' : 'PREMIUM F-INSIGHT'}</Text><Text style={styles.heroTitle}>IA, carteira simulada, alertas e backtesting.</Text><Text style={styles.heroText}>A cobrança real dentro do Android será feita apenas quando Google Play Billing estiver integrado. Para revisão, o acesso premium é liberado sem pagamento.</Text>{hasPremium ? <View style={styles.accountPill}><Text style={styles.accountPillText}>Acesso Premium liberado para {account?.email}</Text></View> : <View style={styles.buttonRow}><Button label="Entrar" primary onPress={() => { setAuthMode('login'); setSection('conta'); }} /><Button label="Demo Premium" onPress={activatePremiumDemo} /></View>}</Card>{premiumFeatures.map((feature) => <Card key={feature}><Text style={styles.rowTitle}>✓ {feature}</Text></Card>)}<Card><Text style={styles.cardTitle}>IA Financeira</Text><Text style={styles.cardText}>{hasPremium ? 'Pergunte sobre ativos, fundamentos, macro e notícias. Módulo em expansão.' : 'Entre com uma conta Premium de revisão ou aguarde a liberação comercial via Google Play Billing.'}</Text></Card></View>;
   }
 
   function renderMais() {
-    return (
-      <View style={styles.stack}>
-        {account && (
-          <Card highlight>
-            <Text style={styles.cardTitle}>Sua conta gratuita</Text>
-            <Text style={styles.cardText}>{account.name} · {account.email}</Text>
-            <Text style={styles.cardText}>Próximo passo: ativar Premium para IA, carteira simulada, alertas e backtesting.</Text>
-          </Card>
-        )}
-
-        <Card>
-          <Text style={styles.cardTitle}>Premium R$ 19,90/mês</Text>
-          {premiumFeatures.map((item) => <Text key={item} style={styles.listItem}>• {item}</Text>)}
-          <View style={styles.buttonRow}>
-            <Button label="Conhecer Premium" primary onPress={() => openWeb('/premium')} />
-            <Button label="Área Logada" onPress={() => openWeb('/area-logada')} />
-          </View>
-        </Card>
-
-        <Card>
-          <Text style={styles.cardTitle}>Área Logada institucional</Text>
-          <Text style={styles.cardText}>Para cliente assessorado, assessor e escritório/admin. Essa área fica separada da conta gratuita do investidor.</Text>
-          <Button label="Abrir Área Logada" onPress={() => openWeb('/area-logada')} />
-        </Card>
-      </View>
-    );
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Minha lista</Text>{watchedAssets.length === 0 ? <Text style={styles.cardText}>Toque no + do radar para acompanhar ativos.</Text> : watchedAssets.map((item) => <View key={item.symbol} style={styles.newsRow}><Text style={styles.rowTitle}>{cleanSymbol(item.symbol)} · {money(item.lastPrice)}</Text><Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text></View>)}</Card><Card><Text style={styles.cardTitle}>Área Logada institucional</Text><Text style={styles.cardText}>Para cliente assessorado, assessor e escritório/admin. Separado da conta comum do investidor.</Text><View style={styles.buttonRow}><Button label="Cliente" onPress={() => openWeb('/cliente')} /><Button label="Assessor" onPress={() => openWeb('/assessor')} /><Button label="Escritório" onPress={() => openWeb('/admin')} /></View></Card><Card><Text style={styles.cardTitle}>Privacidade</Text><View style={styles.buttonRow}><Button label="Privacidade" onPress={() => openWeb('/privacidade')} /><Button label="Excluir conta" onPress={() => openWeb('/excluir-conta')} /></View></Card></View>;
   }
 
-  function renderContent() {
-    if (section === 'conta') return renderConta();
-    if (section === 'radar') return renderRadar();
-    if (section === 'ativos') return renderAtivos();
-    if (section === 'mercado') return renderMercado();
-    if (section === 'mais') return renderMais();
-    return renderHoje();
-  }
+  const content = section === 'hoje' ? renderHoje() : section === 'radar' ? renderRadar() : section === 'ativos' ? renderAtivos() : section === 'mercado' ? renderMercado() : section === 'conta' ? renderConta() : section === 'premium' ? renderPremium() : renderMais();
+  const tabs: Array<{ key: Section; label: string }> = [{ key: 'hoje', label: 'Hoje' }, { key: 'radar', label: 'Radar' }, { key: 'ativos', label: 'Ativos' }, { key: 'mercado', label: 'Mercado' }, { key: 'conta', label: account ? 'Conta' : 'Entrar' }, { key: 'mais', label: 'Mais' }];
 
-  const tabs: Array<{ key: Section; label: string }> = [
-    { key: 'hoje', label: 'Hoje' },
-    { key: 'radar', label: 'Radar' },
-    { key: 'ativos', label: 'Ativos' },
-    { key: 'mercado', label: 'Mercado' },
-    { key: 'mais', label: 'Mais' },
-  ];
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#020617" />
-      <View style={styles.header}>
-        <View style={styles.logo}><Text style={styles.logoText}>↗</Text></View>
-        <View style={styles.headerTextBox}>
-          <Text style={styles.headerTitle}>F-Insight</Text>
-          <Text style={styles.headerSubtitle}>{account ? 'Conta grátis ativa' : 'Mercado aberto'}</Text>
-        </View>
-        <Pressable onPress={() => openWeb('/area-logada')} style={styles.headerButton}>
-          <Text style={styles.headerButtonText}>Área Logada</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {renderContent()}
-      </ScrollView>
-
-      <View style={styles.bottomNav}>
-        {tabs.map((tab) => (
-          <Pressable key={tab.key} onPress={() => setSection(tab.key)} style={[styles.navItem, section === tab.key && styles.navItemActive]}>
-            <Text style={[styles.navText, section === tab.key && styles.navTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={styles.safe}><StatusBar barStyle="light-content" backgroundColor="#020617" /><View style={styles.header}><View style={styles.logo}><Text style={styles.logoText}>↗</Text></View><View style={styles.headerCopy}><Text style={styles.brand}>F-Insight</Text><Text style={styles.headerSub}>{account ? `${account.name} · ${account.plan}` : 'mercado, dados e inteligência'}</Text></View><Pressable onPress={() => setSection('mais')}><Text style={styles.menuIcon}>☰</Text></Pressable></View><ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView><View style={styles.tabbar}>{tabs.map((tab) => <Pressable key={tab.key} onPress={() => setSection(tab.key)} style={[styles.tab, section === tab.key && styles.tabActive]}><Text style={[styles.tabText, section === tab.key && styles.tabTextActive]}>{tab.label}</Text></Pressable>)}</View></SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#020617', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#0f172a', backgroundColor: '#020617' },
-  logo: { width: 52, height: 52, borderRadius: 18, backgroundColor: '#22d3ee', alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: '#020617', fontSize: 32, fontWeight: '900' },
-  headerTextBox: { flex: 1 },
-  headerTitle: { color: '#fff', fontWeight: '900', fontSize: 20 },
-  headerSubtitle: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
-  headerButton: { borderWidth: 1, borderColor: '#334155', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: '#0f172a' },
-  headerButtonText: { color: '#a7f3d0', fontSize: 11, fontWeight: '900' },
-  content: { padding: 16, paddingBottom: 108 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#0f172a', backgroundColor: '#020617' },
+  logo: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#22d3ee' },
+  logoText: { fontSize: 30, color: '#020617', fontWeight: '900' },
+  headerCopy: { flex: 1 },
+  brand: { color: '#fff', fontWeight: '900', fontSize: 20 },
+  headerSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  menuIcon: { color: '#e2e8f0', fontSize: 30, paddingHorizontal: 8 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 112 },
   stack: { gap: 14 },
-  card: { borderRadius: 24, borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', padding: 18 },
-  cardHighlight: { backgroundColor: '#0b2235', borderColor: '#155e75' },
-  kicker: { color: '#22d3ee', fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 10 },
+  card: { borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 24, padding: 18 },
+  cardHighlight: { borderColor: '#164e63', backgroundColor: '#082f49' },
+  kicker: { color: '#67e8f9', fontSize: 11, fontWeight: '900', letterSpacing: 1.4, marginBottom: 10 },
   heroTitle: { color: '#fff', fontSize: 28, lineHeight: 34, fontWeight: '900' },
-  heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 23, marginTop: 12 },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, overflow: 'hidden', fontSize: 11, fontWeight: '900' },
-  badgeBlue: { color: '#67e8f9', backgroundColor: '#0e749020' },
-  badgeGreen: { color: '#86efac', backgroundColor: '#16a34a22' },
-  badgeAmber: { color: '#fde68a', backgroundColor: '#f59e0b22' },
-  badgeDark: { color: '#cbd5e1', backgroundColor: '#020617' },
+  heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 23, marginTop: 10 },
+  cardTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  cardText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 8 },
+  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  badge: { fontSize: 11, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, overflow: 'hidden' },
+  badgeBlue: { color: '#67e8f9', backgroundColor: '#083344' },
+  badgeGreen: { color: '#86efac', backgroundColor: '#064e3b' },
+  badgeAmber: { color: '#fde68a', backgroundColor: '#451a03' },
+  badgeDark: { color: '#cbd5e1', backgroundColor: '#111827' },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
-  button: { flexGrow: 1, borderWidth: 1, borderColor: '#334155', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', backgroundColor: '#020617' },
+  button: { borderWidth: 1, borderColor: '#334155', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#020617' },
   buttonPrimary: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
-  buttonText: { color: '#e2e8f0', fontWeight: '900' },
+  buttonText: { color: '#e2e8f0', fontWeight: '900', fontSize: 13 },
   buttonPrimaryText: { color: '#020617' },
-  accountPill: { marginTop: 16, borderRadius: 16, backgroundColor: '#16a34a22', padding: 12, borderWidth: 1, borderColor: '#16a34a55' },
+  accountPill: { marginTop: 16, borderRadius: 16, backgroundColor: '#064e3b', padding: 12 },
   accountPillText: { color: '#bbf7d0', fontWeight: '900' },
   indexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  indexCard: { width: '48%', borderRadius: 20, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', padding: 14 },
-  indexLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  indexValue: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 8 },
+  indexCard: { width: '48%', borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 20, padding: 14 },
+  indexLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '900' },
+  indexValue: { color: '#fff', fontWeight: '900', fontSize: 20, marginTop: 6 },
   greenText: { color: '#86efac', fontWeight: '900' },
   redText: { color: '#fca5a5', fontWeight: '900' },
-  mutedText: { color: '#94a3b8', fontWeight: '800' },
-  cardTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
-  cardText: { color: '#cbd5e1', fontSize: 14, lineHeight: 22, marginTop: 8 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
-  sourceText: { color: '#64748b', fontSize: 10, fontWeight: '800' },
+  mutedText: { color: '#94a3b8', fontWeight: '700' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   macroRow: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
   flex1: { flex: 1 },
-  rowTitle: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  rowText: { color: '#94a3b8', fontSize: 12, lineHeight: 18, marginTop: 4 },
-  macroValueBox: { minWidth: 92, alignItems: 'flex-end' },
-  macroValue: { color: '#22d3ee', fontWeight: '900', fontSize: 18 },
+  rowTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  rowText: { color: '#94a3b8', fontSize: 12, lineHeight: 18, marginTop: 3 },
+  sourceText: { color: '#64748b', fontSize: 10, fontWeight: '800' },
+  macroValueBox: { alignItems: 'flex-end', maxWidth: 110 },
+  macroValue: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  bigValue: { color: '#fff', fontWeight: '900', fontSize: 34, marginVertical: 10 },
   newsRow: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 12, marginTop: 12 },
-  inputLabel: { color: '#94a3b8', fontWeight: '800', marginBottom: 8, marginTop: 10 },
-  input: { backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 14, color: '#fff', fontSize: 16 },
-  successBox: { color: '#bbf7d0', backgroundColor: '#16a34a22', borderColor: '#16a34a55', borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 12 },
-  errorBox: { color: '#fecaca', backgroundColor: '#ef444422', borderColor: '#ef444455', borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 12 },
-  disclaimer: { color: '#64748b', fontSize: 11, lineHeight: 17, marginTop: 12 },
-  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', padding: 14 },
+  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 18, padding: 14 },
   assetTicker: { color: '#67e8f9', fontWeight: '900', fontSize: 18 },
   assetNumbers: { alignItems: 'flex-end' },
-  assetPrice: { color: '#fff', fontWeight: '900' },
-  watchButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#22d3ee', alignItems: 'center', justifyContent: 'center' },
-  watchText: { color: '#020617', fontWeight: '900', fontSize: 18 },
+  assetPrice: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  watchButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#083344', alignItems: 'center', justifyContent: 'center' },
+  watchButtonText: { color: '#67e8f9', fontWeight: '900', fontSize: 18 },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  metric: { color: '#e2e8f0', backgroundColor: '#020617', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, fontWeight: '800' },
-  listItem: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingTop: 10, paddingBottom: Platform.OS === 'android' ? 18 : 24, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#0f172a' },
-  navItem: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14 },
-  navItemActive: { backgroundColor: '#0e749022' },
-  navText: { color: '#64748b', fontSize: 11, fontWeight: '900' },
-  navTextActive: { color: '#67e8f9' },
+  metric: { width: '47%', color: '#e2e8f0', backgroundColor: '#020617', borderRadius: 12, padding: 10, fontWeight: '800' },
+  segment: { flexDirection: 'row', borderRadius: 18, backgroundColor: '#020617', padding: 4, marginTop: 16 },
+  segmentItem: { flex: 1, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  segmentItemActive: { backgroundColor: '#22d3ee' },
+  segmentText: { color: '#94a3b8', fontWeight: '900' },
+  segmentTextActive: { color: '#020617' },
+  inputLabel: { color: '#94a3b8', fontWeight: '800', marginTop: 12, marginBottom: 6 },
+  input: { color: '#fff', borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#020617', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16 },
+  helperText: { color: '#64748b', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  successBox: { color: '#bbf7d0', backgroundColor: '#064e3b', borderRadius: 14, padding: 12, marginTop: 12, fontWeight: '800' },
+  errorBox: { color: '#fecaca', backgroundColor: '#451a1a', borderRadius: 14, padding: 12, marginTop: 12, fontWeight: '800' },
+  tabbar: { position: 'absolute', left: 12, right: 12, bottom: 12, flexDirection: 'row', gap: 6, backgroundColor: '#020617', borderWidth: 1, borderColor: '#1e293b', borderRadius: 24, padding: 8 },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 16 },
+  tabActive: { backgroundColor: '#22d3ee' },
+  tabText: { color: '#94a3b8', fontSize: 11, fontWeight: '900' },
+  tabTextActive: { color: '#020617' },
 });
