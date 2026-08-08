@@ -14,10 +14,10 @@ import {
   ClipboardList,
   MessageCircle,
   CreditCard,
-  PlayCircle,
   ShieldCheck,
   Zap,
   Globe2,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/hooks/useStore';
@@ -34,9 +34,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Início', href: '/', icon: Home, public: true },
-  { label: 'Portal', href: '/portal', icon: Globe2, public: true },
-  { label: 'Para escritórios', href: '/precos', icon: Building2, public: true },
-  { label: 'Demo', href: '/demo', icon: PlayCircle, public: true },
+  { label: 'Radar', href: '/radar', icon: TrendingUp, public: true },
+  { label: 'Mercado', href: '/macro', icon: Globe2, public: true },
+  { label: 'Análises', href: '/analises', icon: BarChart3, public: true },
+  { label: 'Premium', href: '/premium', icon: CreditCard, public: true },
+  { label: 'Assessores', href: '/assessores-escritorios', icon: Building2, public: true },
   { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
@@ -48,7 +50,29 @@ const navItems: NavItem[] = [
   { label: 'Atualizações', href: '/admin/atualizacoes', icon: CalendarDays, roles: ['admin', 'advisor'] },
 ];
 
-const publicBrandPaths = ['/', '/portal', '/precos', '/demo', '/login', '/termos', '/privacidade', '/aviso-educacional', '/onboarding', '/cadastro-escritorio'];
+const publicBrandPaths = [
+  '/',
+  '/portal',
+  '/radar',
+  '/watchlist',
+  '/noticias',
+  '/analises',
+  '/alertas',
+  '/macro',
+  '/graham-valor',
+  '/screener-acoes',
+  '/backtesting',
+  '/premium',
+  '/assessores-escritorios',
+  '/precos',
+  '/demo',
+  '/login',
+  '/termos',
+  '/privacidade',
+  '/aviso-educacional',
+  '/onboarding',
+  '/cadastro-escritorio',
+];
 
 interface LayoutProps {
   children: ReactNode;
@@ -60,6 +84,12 @@ function roleLabel(role: string) {
   return 'Admin';
 }
 
+function roleHomePath(role: string) {
+  if (role === 'client') return '/cliente';
+  if (role === 'advisor') return '/assessor';
+  return '/admin';
+}
+
 export function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -67,10 +97,11 @@ export function Layout({ children }: LayoutProps) {
   const { tenant } = useTenant();
   const { user, logout } = useAuth();
 
-  const isPublicBrand = publicBrandPaths.includes(location.pathname);
+  const isPublicBrand = publicBrandPaths.includes(location.pathname) || location.pathname.startsWith('/ativo/');
   const brandName = isPublicBrand ? 'F-Insight' : tenant.brandName || 'F-Insight';
   const showTenantLogo = !isPublicBrand && Boolean(tenant.logoDataUrl);
   const visibleNav = navItems.filter((item) => item.public || (user && item.roles?.includes(user.role)));
+  const loggedAreaPath = user ? roleHomePath(user.role) : '/login';
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -106,7 +137,7 @@ export function Layout({ children }: LayoutProps) {
               </div>
             </Link>
 
-            <nav className="hidden xl:flex items-center gap-1 overflow-x-auto max-w-[58vw]">
+            <nav className="hidden xl:flex items-center gap-1 overflow-x-auto max-w-[60vw]">
               {visibleNav.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
@@ -129,14 +160,6 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <Link
-                to="/demo"
-                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 text-sm hover:bg-primary/15 transition-colors"
-              >
-                <PlayCircle className="w-4 h-4" />
-                Demo
-              </Link>
-
               {user ? (
                 <button
                   onClick={() => void logout()}
@@ -152,7 +175,7 @@ export function Layout({ children }: LayoutProps) {
                   className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm hover:bg-emerald-500/15 transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
-                  Login
+                  Área Logada
                 </Link>
               )}
 
@@ -171,11 +194,11 @@ export function Layout({ children }: LayoutProps) {
         <div className="xl:hidden fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-lg animate-fade-in">
           <div className="flex flex-col p-4 pt-20 overflow-y-auto max-h-screen">
             <Link
-              to={user ? '/demo' : '/login'}
+              to={loggedAreaPath}
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium text-emerald-400 bg-emerald-500/10 mb-2"
             >
               <LogIn className="w-6 h-6" />
-              {user ? `Sessão: ${roleLabel(user.role)}` : 'Login'}
+              {user ? `Área ${roleLabel(user.role)}` : 'Área Logada'}
             </Link>
             {visibleNav.map((item) => {
               const Icon = item.icon;
@@ -212,18 +235,18 @@ export function Layout({ children }: LayoutProps) {
                 )}
               </div>
               <span className="text-slate-400 text-sm">
-                © 2026 {brandName}. Inteligência de mercado educativa.
+                © 2026 {brandName}. Inteligência financeira educativa.
               </span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
-              <Link to="/portal" className="hover:text-slate-300 transition-colors">
-                Portal
+              <Link to="/radar" className="hover:text-slate-300 transition-colors">
+                Radar
               </Link>
-              <Link to="/precos" className="hover:text-slate-300 transition-colors">
-                Para escritórios
+              <Link to="/premium" className="hover:text-slate-300 transition-colors">
+                Premium
               </Link>
-              <Link to="/demo" className="hover:text-slate-300 transition-colors">
-                Demo
+              <Link to="/assessores-escritorios" className="hover:text-slate-300 transition-colors">
+                Assessores
               </Link>
               <Link to="/termos" className="hover:text-slate-300 transition-colors">
                 Termos
