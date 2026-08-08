@@ -2,7 +2,7 @@ module.exports = ({ config }) => ({
   ...config,
   name: 'F-Insight',
   slug: 'finsight-mobile',
-  version: '1.0.8',
+  version: '1.0.9',
   orientation: 'portrait',
   scheme: 'finsight',
   userInterfaceStyle: 'dark',
@@ -18,7 +18,7 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'br.com.finsight.app',
-    versionCode: 9,
+    versionCode: 10,
     permissions: ['INTERNET']
   },
   extra: {
