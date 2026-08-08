@@ -28,11 +28,11 @@ const STORAGE_KEY = 'f-insight-auth-user';
 function normalizeRole(value: unknown): AuthRole {
   if (value === 'advisor' || value === 'client' || value === 'admin') return value;
   if (value === 'tenant_admin' || value === 'platform_admin') return 'admin';
-  return 'admin';
+  return 'client';
 }
 
-function routeForRole(role: AuthRole = 'admin') {
-  if (role === 'client') return '/cliente';
+function routeForRole(role: AuthRole = 'client') {
+  if (role === 'client') return '/app';
   if (role === 'advisor') return '/assessor';
   return '/admin';
 }
@@ -50,6 +50,16 @@ function demoUser(role: AuthRole): AuthUser {
     fullName: names[role],
     role,
     isDemo: true,
+  };
+}
+
+function localFreeUser(input: { email: string; fullName: string; role: AuthRole }): AuthUser {
+  return {
+    id: `local-${Date.now()}`,
+    email: input.email,
+    fullName: input.fullName || input.email,
+    role: input.role,
+    isDemo: false,
   };
 }
 
@@ -134,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return nextUser;
     },
     async signInWithPassword(email: string, password: string) {
-      if (!supabase) throw new Error('Supabase não configurado. Use o modo demo ou confira a anon key.');
+      if (!supabase) throw new Error('Login online indisponível agora. Use a conta gratuita/local ou o modo demo.');
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data.user) throw new Error('Login não retornou usuário.');
@@ -150,38 +160,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return mappedUser;
     },
     async signUpWithPassword(input) {
-      if (!supabase) throw new Error('Supabase não configurado. Use o modo demo ou confira a anon key.');
-      const { data, error } = await supabase.auth.signUp({
-        email: input.email,
-        password: input.password,
-        options: {
-          data: {
-            full_name: input.fullName,
-            role: input.role,
-          },
-        },
-      });
-      if (error) throw error;
-      if (!data.user) throw new Error('Cadastro não retornou usuário.');
-
-      const profileRole = input.role === 'admin' ? 'tenant_admin' : input.role;
-      await supabase.from('profiles').upsert({
-        auth_user_id: data.user.id,
-        email: input.email,
-        full_name: input.fullName,
-        role: profileRole,
-      }, { onConflict: 'email' });
-
-      const mappedUser: AuthUser = {
-        id: data.user.id,
-        email: input.email,
-        fullName: input.fullName,
-        role: input.role,
-        isDemo: false,
+      const makeLocalAccess = () => {
+        const nextUser = localFreeUser({ email: input.email, fullName: input.fullName, role: input.role });
+        setUser(nextUser);
+        saveLocalUser(nextUser);
+        return nextUser;
       };
-      setUser(mappedUser);
-      saveLocalUser(mappedUser);
-      return mappedUser;
+
+      if (!supabase) {
+        if (input.role === 'client') return makeLocalAccess();
+        throw new Error('Login institucional indisponível agora. Use o modo demo ou confira a configuração do Supabase.');
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: input.email,
+          password: input.password,
+          options: {
+            data: {
+              full_name: input.fullName,
+              role: input.role,
+            },
+          },
+        });
+        if (error) throw error;
+        if (!data.user) throw new Error('Cadastro não retornou usuário.');
+
+        const profileRole = input.role === 'admin' ? 'tenant_admin' : input.role;
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          auth_user_id: data.user.id,
+          email: input.email,
+          full_name: input.fullName,
+          role: profileRole,
+        }, { onConflict: 'email' });
+
+        if (profileError && input.role !== 'client') throw profileError;
+
+        const mappedUser: AuthUser = {
+          id: data.user.id,
+          email: input.email,
+          fullName: input.fullName,
+          role: input.role,
+          isDemo: false,
+        };
+        setUser(mappedUser);
+        saveLocalUser(mappedUser);
+        return mappedUser;
+      } catch (error) {
+        if (input.role === 'client') return makeLocalAccess();
+        throw error;
+      }
     },
     async logout() {
       saveLocalUser(null);
