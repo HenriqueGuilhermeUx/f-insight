@@ -20,31 +20,45 @@ const REVIEWER_EMAIL = ['notarizex', 'gmail.com'].join('@');
 const ACCOUNTS_KEY = 'finsight-mobile-accounts';
 const SESSION_KEY = 'finsight-mobile-session';
 const FUTURE_REPORT_KEY = 'finsight-mobile-future-report';
+const RADAR_REPORT_KEY = 'finsight-mobile-radar-report';
 
-type Section = 'hoje' | 'futuro' | 'radar' | 'ativos' | 'mercado' | 'conta' | 'premium' | 'mais';
+type Section = 'hoje' | 'futuro' | 'radarIa' | 'mercado' | 'conta' | 'premium' | 'mais';
 type AuthMode = 'login' | 'signup';
 type Plan = 'free' | 'premium';
 type Account = { name: string; email: string; plan: Plan };
 type StoredAccount = Account & { password: string };
 type LiveIndicator = { symbol: string; lastPrice: number; changePercent: number; fetchedAt?: string };
-type MacroItem = { id: string; label: string; value: number; unit: string; source?: string; interpretation?: string };
+type MacroItem = { id?: string; label: string; value: number; unit: string; source?: string; interpretation?: string };
+
 type FutureReport = {
-  profile: string;
-  stage: string;
-  realTalk: string;
-  freedomScore: number;
-  monthlyBalance: number;
-  savingsRate: number;
-  leakPotential: number;
-  workHoursLost: number;
-  targetLabel: string;
-  conservative: number;
-  base: number;
-  accelerated: number;
-  opportunities: string[];
-  weekMission: string;
-  ninetyDayPlan: string[];
-  openFinanceNext: string;
+  profile?: string;
+  stage?: string;
+  realTalk?: string;
+  freedomScore?: number;
+  monthlyBalance?: number;
+  savingsRate?: number;
+  leakPotential?: number;
+  workHoursLost?: number;
+  targetLabel?: string;
+  conservative?: number;
+  base?: number;
+  accelerated?: number;
+  opportunities?: string[];
+  weekMission?: string;
+  ninetyDayPlan?: string[];
+  openFinanceNext?: string;
+  riskNotice?: string;
+};
+
+type RadarReport = {
+  mode?: string;
+  normalizedSymbol?: string;
+  educationalSummary?: string;
+  researchPlan?: string[];
+  simulationPlan?: string[];
+  risks?: string[];
+  investorQuestions?: string[];
+  riskNotice?: string;
 };
 
 const fallbackIndicators: LiveIndicator[] = [
@@ -60,32 +74,6 @@ const macroFallback: MacroItem[] = [
   { id: 'selic', label: 'Selic Meta', value: 14.0, unit: '% a.a.', source: 'fallback offline', interpretation: 'O app tenta atualizar online pela API F-Insight/BCB.' },
   { id: 'ipca', label: 'IPCA Mensal', value: 0.38, unit: '% m/m', source: 'fallback offline', interpretation: 'Inflação impacta juros, margens e poder de compra.' },
   { id: 'usdbrl', label: 'Dólar Comercial', value: 5.1, unit: 'BRL', source: 'fallback offline', interpretation: 'Câmbio afeta inflação, commodities e exportadoras.' },
-];
-
-const indexCards = [
-  { label: 'IBOV', value: '178.002', change: 'acompanhar' },
-  { label: 'S&P 500', value: '7.600', change: '+1,48%' },
-  { label: 'Dólar', value: 'R$ 5,10', change: '+0,15%' },
-  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%' },
-];
-
-const news = [
-  { title: 'Mercado acompanha juros, dólar, commodities e temporada de balanços.', source: 'F-Insight Research' },
-  { title: 'Bancos seguem sensíveis à curva de juros e qualidade do crédito.', source: 'Radar Brasil' },
-  { title: 'Valuation exige disciplina quando a Selic está elevada.', source: 'Painel Macro' },
-];
-
-const screenerRows = [
-  { ticker: 'PETR4', name: 'Petrobras PN', pe: '5,1x', pvp: '1,2x', dy: '12,4%', roe: '23%' },
-  { ticker: 'BBAS3', name: 'Banco do Brasil ON', pe: '4,8x', pvp: '0,9x', dy: '9,8%', roe: '21%' },
-  { ticker: 'VALE3', name: 'Vale ON', pe: '6,7x', pvp: '1,4x', dy: '7,1%', roe: '18%' },
-  { ticker: 'ITUB4', name: 'Itaú Unibanco PN', pe: '8,9x', pvp: '1,7x', dy: '6,2%', roe: '20%' },
-];
-
-const premiumFeatures = [
-  'Meu Futuro IA: objetivos, diagnóstico comportamental e plano de longo prazo.',
-  'Screener avançado por valor, dividendos, qualidade, risco e liquidez.',
-  'Carteira simulada, alertas inteligentes, backtesting e relatórios semanais.',
 ];
 
 const objectives = [
@@ -106,43 +94,36 @@ const stages = [
   'Tenho patrimônio',
 ];
 
+const quickRadarPrompts = [
+  'Analise BTC nos últimos 6 meses sem recomendar compra.',
+  'Compare Selic, dólar e Ibovespa para uma pessoa de longo prazo.',
+  'Simule aportes mensais no IBOV de forma educativa.',
+];
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function numberFromInput(value: string) {
-  const normalized = value.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+function numberFromInput(value: string | number | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const normalized = String(value || '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function cleanSymbol(symbol: string) {
-  return symbol.replace('.SA', '');
+function money(value?: number) {
+  const safe = Number.isFinite(value) ? Number(value) : 0;
+  return `R$ ${safe.toFixed(2).replace('.', ',')}`;
 }
 
-function symbolName(symbol: string) {
-  const names: Record<string, string> = {
-    'PETR4.SA': 'Petrobras PN',
-    'VALE3.SA': 'Vale ON',
-    'ITUB4.SA': 'Itaú Unibanco PN',
-    'BBAS3.SA': 'Banco do Brasil ON',
-    'BBDC4.SA': 'Bradesco PN',
-    'WEGE3.SA': 'WEG ON',
-  };
-  return names[symbol] || cleanSymbol(symbol);
-}
-
-function money(value: number) {
-  return Number.isFinite(value) ? `R$ ${value.toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-}
-
-function pct(value: number) {
-  return Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}%` : '0,00%';
+function pct(value?: number) {
+  const safe = Number.isFinite(value) ? Number(value) : 0;
+  return `${safe >= 0 ? '+' : ''}${safe.toFixed(2).replace('.', ',')}%`;
 }
 
 function macroValue(item: MacroItem) {
-  if (item.unit === 'BRL') return `R$ ${item.value.toFixed(2).replace('.', ',')}`;
-  return `${item.value.toFixed(2).replace('.', ',')}%`;
+  if (item.unit === 'BRL') return money(item.value);
+  return `${Number(item.value || 0).toFixed(2).replace('.', ',')}%`;
 }
 
 function futureValue(monthly: number, annualRate: number, years: number) {
@@ -152,8 +133,22 @@ function futureValue(monthly: number, annualRate: number, years: number) {
   return monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
 }
 
+function cleanSymbol(symbol: string) {
+  return symbol.replace('.SA', '');
+}
+
 function openWeb(path: string) {
   void Linking.openURL(`${WEB_URL}${path.startsWith('/') ? path : `/${path}`}`);
+}
+
+async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`API ${response.status}`);
+  return response.json();
 }
 
 function Card({ children, highlight = false, warning = false }: { children: React.ReactNode; highlight?: boolean; warning?: boolean }) {
@@ -172,17 +167,18 @@ export default function App() {
   const [section, setSection] = useState<Section>('hoje');
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [loading, setLoading] = useState(true);
+  const [agentOnline, setAgentOnline] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [isMacroLive, setIsMacroLive] = useState(false);
   const [indicators, setIndicators] = useState<LiveIndicator[]>([]);
   const [macroItems, setMacroItems] = useState<MacroItem[]>(macroFallback);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
   const [account, setAccount] = useState<Account | null>(null);
-  const [watch, setWatch] = useState(['PETR4.SA', 'ITUB4.SA', 'BBAS3.SA']);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+
   const [futureObjective, setFutureObjective] = useState(objectives[0]);
   const [futureStage, setFutureStage] = useState(stages[1]);
   const [futureAge, setFutureAge] = useState('35');
@@ -195,30 +191,39 @@ export default function App() {
   const [futureGoalYears, setFutureGoalYears] = useState('15');
   const [futureTransactions, setFutureTransactions] = useState('');
   const [futureReport, setFutureReport] = useState<FutureReport | null>(null);
+  const [futureLoading, setFutureLoading] = useState(false);
+
+  const [radarPrompt, setRadarPrompt] = useState('Analise PETR4 nos últimos 12 meses sem recomendar compra.');
+  const [radarSymbol, setRadarSymbol] = useState('PETR4.SA');
+  const [radarReport, setRadarReport] = useState<RadarReport | null>(null);
+  const [radarLoading, setRadarLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function boot() {
       try {
-        const [savedAccounts, savedSession, savedFuture] = await Promise.all([
+        const [savedAccounts, savedSession, savedFuture, savedRadar] = await Promise.all([
           AsyncStorage.getItem(ACCOUNTS_KEY),
           AsyncStorage.getItem(SESSION_KEY),
           AsyncStorage.getItem(FUTURE_REPORT_KEY),
+          AsyncStorage.getItem(RADAR_REPORT_KEY),
         ]);
         if (!cancelled) {
           setAccounts(savedAccounts ? JSON.parse(savedAccounts) : []);
           if (savedSession) setAccount(JSON.parse(savedSession));
           if (savedFuture) setFutureReport(JSON.parse(savedFuture));
+          if (savedRadar) setRadarReport(JSON.parse(savedRadar));
         }
       } catch {
-        // O app continua funcionando mesmo sem storage local.
+        // O app continua mesmo sem storage.
       }
 
       try {
-        const [liveResponse, macroResponse] = await Promise.allSettled([
+        const [liveResponse, macroResponse, agentResponse] = await Promise.allSettled([
           fetch(`${API_URL}/api/live/indicators`),
           fetch(`${API_URL}/api/macro/overview?refresh=true`),
+          fetch(`${API_URL}/api/agent/health`),
         ]);
         if (cancelled) return;
 
@@ -237,12 +242,17 @@ export default function App() {
             setIsMacroLive(String(payload?.source || '').includes('online') || String(payload?.source || '').includes('banco-central'));
           }
         }
+
+        if (agentResponse.status === 'fulfilled' && agentResponse.value.ok) {
+          setAgentOnline(true);
+        }
       } catch {
         if (!cancelled) {
           setIndicators([]);
           setMacroItems(macroFallback);
           setIsLive(false);
           setIsMacroLive(false);
+          setAgentOnline(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -254,8 +264,7 @@ export default function App() {
   }, []);
 
   const marketData = indicators.length > 0 ? indicators : fallbackIndicators;
-  const watchedAssets = marketData.filter((item) => watch.includes(item.symbol));
-  const avgChange = marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length;
+  const avgChange = marketData.reduce((sum, item) => sum + item.changePercent, 0) / Math.max(1, marketData.length);
   const hasPremium = account?.plan === 'premium';
 
   const mood = useMemo(() => {
@@ -284,7 +293,7 @@ export default function App() {
     const nextAccounts = [...accounts.filter((item) => normalizeEmail(item.email) !== next.email), next];
     await persistAccounts(nextAccounts);
     await persistSession({ name: next.name, email: next.email, plan: next.plan });
-    setMessage('Conta gratuita criada e salva neste aparelho. Use Entrar para acessar depois.');
+    setMessage('Conta gratuita criada e salva neste aparelho.');
     setSection('futuro');
   }
 
@@ -319,22 +328,15 @@ export default function App() {
     setSection('futuro');
   }
 
-  function toggleWatch(symbol: string) {
-    setWatch((current) => (current.includes(symbol) ? current.filter((item) => item !== symbol) : [...current, symbol]));
-  }
-
-  async function generateFutureReport() {
+  function localFutureReport(): FutureReport {
     const income = numberFromInput(futureIncome);
     const expenses = numberFromInput(futureExpenses);
     const debt = numberFromInput(futureDebt);
     const savings = numberFromInput(futureSavings);
     const target = numberFromInput(futureGoalAmount);
     const years = Math.max(1, numberFromInput(futureGoalYears) || 10);
-    const age = Math.max(0, numberFromInput(futureAge));
-    const dependents = Math.max(0, numberFromInput(futureDependents));
     const balance = income - expenses - savings;
     const savingsRate = income > 0 ? savings / income : 0;
-    const debtPressure = income > 0 ? debt / income : 0;
     const leakPotential = Math.max(0, balance * 0.6 + (futureTransactions.length > 40 ? income * 0.03 : 0));
     const hourly = income > 0 ? income / 176 : 0;
     const workHoursLost = hourly > 0 ? leakPotential / hourly : 0;
@@ -343,7 +345,7 @@ export default function App() {
     let stage = 'Você trabalha para manter o mês em pé.';
     let realTalk = 'Seu dinheiro entra, paga o mês e não compra futuro. A prioridade agora é criar folga antes de falar em sofisticação.';
 
-    if (balance < 0 || debtPressure > 2) {
+    if (balance < 0 || debt > income * 2) {
       profile = 'Sangria';
       stage = 'O buraco precisa parar antes de qualquer plano bonito.';
       realTalk = 'Você não precisa de uma carteira incrível agora. Precisa estancar a sangria: dívida, custo fixo e gasto impulsivo estão tomando seu poder de escolha.';
@@ -355,36 +357,14 @@ export default function App() {
       profile = 'Poupador Fraco';
       stage = 'Você guarda, mas pouco para o tamanho da sua ambição.';
       realTalk = 'Você começou certo, mas ainda está negociando com o próprio futuro. A meta precisa virar boleto positivo todo mês.';
-    } else if (savingsRate >= 0.1 && target > 0) {
+    } else if (savingsRate >= 0.1) {
       profile = savingsRate >= 0.25 ? 'Estrategista' : 'Construtor';
       stage = savingsRate >= 0.25 ? 'Agora o jogo é proteger, otimizar e transformar patrimônio em liberdade.' : 'Você já constrói, mas precisa conectar aportes com objetivos claros.';
       realTalk = savingsRate >= 0.25 ? 'Você está acima da média em disciplina. O próximo salto é clareza: para que vida exatamente esse patrimônio está trabalhando?' : 'Você está no caminho. Agora precisamos parar de acumular no escuro e transformar cada aporte em avanço mensurável.';
     }
 
-    if (futureObjective === 'Sair do vermelho') {
-      realTalk = debt > 0 ? `Sua prioridade não é render mais: é parar de pagar o passado. A dívida declarada de ${money(debt)} precisa virar plano de ataque.` : 'Você escolheu sair do vermelho, mas não informou dívida. Se existe parcelamento, rotativo ou atraso, coloque o valor para o diagnóstico ficar honesto.';
-    }
-
-    if (dependents > 0 && profile !== 'Sangria') {
-      realTalk += ` Como existem ${dependents} dependente(s), cada vazamento também atrasa proteção familiar, reserva e escolhas futuras.`;
-    }
-
-    const score = Math.max(0, Math.min(100, Math.round(35 + savingsRate * 180 - Math.max(0, debtPressure - 0.5) * 18 + (balance > 0 ? 10 : -15) + (target > 0 ? 8 : 0))));
-    const conservative = futureValue(Math.max(0, savings), 0.04, years);
-    const base = futureValue(Math.max(0, savings + leakPotential * 0.5), 0.07, years);
-    const accelerated = futureValue(Math.max(0, savings + leakPotential), 0.09, years);
-
-    const opportunities = [
-      leakPotential > 0 ? `Redirecionar ${money(leakPotential)} por mês de vazamentos para a meta. Isso representa ${workHoursLost.toFixed(1).replace('.', ',')} horas de trabalho recuperadas.` : 'Criar um valor mínimo automático para a meta antes do dinheiro circular no mês.',
-      debt > 0 ? `Atacar a dívida de ${money(debt)} antes de aumentar risco. Dívida cara é um anti-investimento.` : 'Separar reserva de emergência antes de buscar complexidade.',
-      target > 0 ? `Transformar a meta de ${money(target)} em marcos trimestrais, não em desejo distante.` : 'Definir valor alvo e prazo. Sem alvo, qualquer sobra parece progresso.',
-    ];
-
-    if (futureObjective === 'Comprar imóvel') opportunities.push('Comparar compra agora com esperar e aumentar entrada. Parcela alta pode comprar ansiedade, não casa.');
-    if (futureObjective === 'Aposentar com renda') opportunities.push('Simular renda futura por cenário conservador, base e acelerado, sem depender de promessa de ativo específico.');
-    if (futureObjective === 'Montar reserva') opportunities.push('Primeiro alvo: 1 mês de custo de vida. Depois 3, 6 e 12 meses, conforme estabilidade da renda.');
-
-    const report: FutureReport = {
+    const score = Math.max(0, Math.min(100, Math.round(35 + savingsRate * 180 + (balance > 0 ? 10 : -15) - (debt > income ? 12 : 0))));
+    return {
       profile,
       stage,
       realTalk,
@@ -393,55 +373,112 @@ export default function App() {
       savingsRate,
       leakPotential,
       workHoursLost,
-      targetLabel: `${futureObjective} em ${years} anos${age > 0 ? ` · idade atual ${age}` : ''}`,
-      conservative,
-      base,
-      accelerated,
-      opportunities,
-      weekMission: profile === 'Sangria' ? 'Missão 7 dias: congelar gasto variável não essencial, listar todas as dívidas e escolher uma para renegociar primeiro.' : 'Missão 7 dias: escolher um vazamento, cortar ou reduzir, e transferir o valor para uma caixinha chamada Liberdade.',
-      ninetyDayPlan: [
-        'Semana 1: organizar renda, custos fixos, dívidas e recorrências.',
-        'Dia 30: criar folga mínima mensal e primeira meta automática.',
-        'Dia 60: revisar comportamento de consumo e travar o maior vazamento.',
-        'Dia 90: recalcular rota e transformar o plano em acompanhamento mensal.',
+      targetLabel: `${futureObjective} em ${years} anos`,
+      conservative: futureValue(Math.max(0, savings), 0.04, years),
+      base: futureValue(Math.max(0, savings + leakPotential * 0.5), 0.07, years),
+      accelerated: futureValue(Math.max(0, savings + leakPotential), 0.09, years),
+      opportunities: [
+        leakPotential > 0 ? `Redirecionar ${money(leakPotential)} por mês de vazamentos para a meta.` : 'Criar um valor mínimo automático para a meta antes do dinheiro circular no mês.',
+        debt > 0 ? `Atacar a dívida de ${money(debt)} antes de aumentar risco. Dívida cara é um anti-investimento.` : 'Separar reserva de emergência antes de buscar complexidade.',
+        target > 0 ? `Transformar a meta de ${money(target)} em marcos trimestrais.` : 'Definir valor alvo e prazo. Sem alvo, qualquer sobra parece progresso.',
       ],
-      openFinanceNext: 'Próxima evolução: conectar Open Finance para ler extratos, cartões e saldo de forma consentida, transformando este diagnóstico em acompanhamento vivo.',
+      weekMission: profile === 'Sangria' ? 'Missão 7 dias: congelar gasto variável não essencial, listar todas as dívidas e renegociar uma.' : 'Missão 7 dias: cortar um vazamento e transferir o valor para uma caixinha chamada Liberdade.',
+      ninetyDayPlan: ['Semana 1: organizar renda, custos fixos, dívidas e recorrências.', 'Dia 30: criar folga mínima mensal.', 'Dia 60: travar o maior vazamento.', 'Dia 90: recalcular rota e criar acompanhamento mensal.'],
+      openFinanceNext: 'Próxima evolução: Open Finance para transformar este diagnóstico em acompanhamento vivo.',
+      riskNotice: 'Conteúdo educativo. Não é recomendação individualizada de investimento.',
     };
+  }
 
-    setFutureReport(report);
-    await AsyncStorage.setItem(FUTURE_REPORT_KEY, JSON.stringify(report));
+  async function generateFutureReport() {
+    setFutureLoading(true);
+    try {
+      const payload = {
+        objective: futureObjective,
+        currentStage: futureStage,
+        age: numberFromInput(futureAge),
+        dependents: numberFromInput(futureDependents),
+        monthlyIncome: numberFromInput(futureIncome),
+        monthlyExpenses: numberFromInput(futureExpenses),
+        totalDebt: numberFromInput(futureDebt),
+        monthlySavings: numberFromInput(futureSavings),
+        goalAmount: numberFromInput(futureGoalAmount),
+        goalYears: numberFromInput(futureGoalYears),
+        rawTransactionsText: futureTransactions,
+      };
+      const remote = await postJson<FutureReport>('/api/agent/life-plan', payload);
+      setFutureReport(remote);
+      setAgentOnline(true);
+      await AsyncStorage.setItem(FUTURE_REPORT_KEY, JSON.stringify(remote));
+    } catch {
+      const fallback = localFutureReport();
+      setFutureReport(fallback);
+      await AsyncStorage.setItem(FUTURE_REPORT_KEY, JSON.stringify(fallback));
+    } finally {
+      setFutureLoading(false);
+    }
+  }
+
+  async function generateRadarReport() {
+    setRadarLoading(true);
+    try {
+      const remote = await postJson<RadarReport>('/api/agent/radar', {
+        prompt: radarPrompt,
+        symbol: radarSymbol,
+        horizon: '12 meses',
+        userObjective: futureObjective,
+      });
+      setRadarReport(remote);
+      setAgentOnline(true);
+      await AsyncStorage.setItem(RADAR_REPORT_KEY, JSON.stringify(remote));
+    } catch {
+      const fallback: RadarReport = {
+        mode: 'fallback-local',
+        normalizedSymbol: radarSymbol.toUpperCase(),
+        educationalSummary: 'O agente online ainda não respondeu. Use isto como roteiro educativo: entenda preço, fundamentos, cenário macro, risco e horizonte antes de qualquer decisão.',
+        researchPlan: ['Coletar histórico de preço e volatilidade.', 'Comparar com juros, dólar e cenário macro.', 'Separar tese de longo prazo de ruído de curto prazo.'],
+        simulationPlan: ['Simular aporte mensal.', 'Comparar cenário conservador, base e acelerado.', 'Exibir limitações da simulação.'],
+        risks: ['Não é recomendação de compra ou venda.', 'Resultado passado não garante resultado futuro.', 'Simulação não captura eventos inesperados.'],
+        investorQuestions: ['Esse ativo conversa com meu objetivo?', 'Meu prazo suporta volatilidade?', 'Estou buscando tese ou emoção?'],
+        riskNotice: 'Conteúdo educativo e de simulação. Não executa ordens.',
+      };
+      setRadarReport(fallback);
+      await AsyncStorage.setItem(RADAR_REPORT_KEY, JSON.stringify(fallback));
+    } finally {
+      setRadarLoading(false);
+    }
   }
 
   function renderHoje() {
     return <View style={styles.stack}>
       <Card highlight>
-        <Text style={styles.kicker}>F-INSIGHT PARA INVESTIDORES</Text>
-        <Text style={styles.heroTitle}>Veja o mercado, planeje sua vida financeira e aprofunde com Premium.</Text>
-        <Text style={styles.heroText}>Cotações, macro, notícias, radar, fundamentos e Meu Futuro IA em uma experiência simples.</Text>
-        <View style={styles.rowWrap}><Text style={styles.badge}>{isLive ? 'Cotações online' : 'cotações demo'}</Text><Text style={styles.badge}>{isMacroLive ? 'Macro online BCB' : 'macro fallback'}</Text></View>
+        <Text style={styles.kicker}>F-INSIGHT PUBLICADO NA GOOGLE PLAY</Text>
+        <Text style={styles.heroTitle}>Mercado, Futuro IA e Radar IA em um só app.</Text>
+        <Text style={styles.heroText}>Agora o F-Insight conecta objetivos de vida, diagnóstico financeiro e análise educativa de mercado.</Text>
+        <View style={styles.rowWrap}>
+          <Text style={styles.badge}>{isLive ? 'Cotações online' : 'cotações demo'}</Text>
+          <Text style={styles.badge}>{isMacroLive ? 'Macro online BCB' : 'macro fallback'}</Text>
+          <Text style={styles.badge}>{agentOnline ? 'Agent online' : 'Agent fallback'}</Text>
+        </View>
         {account ? <View style={styles.accountPill}><Text style={styles.accountPillText}>{account.plan === 'premium' ? 'Premium ativo' : 'Conta grátis ativa'} · {account.name}</Text></View> : <View style={styles.buttonRow}><Button label="Criar conta grátis" primary onPress={() => { setAuthMode('signup'); setSection('conta'); }} /><Button label="Entrar" onPress={() => { setAuthMode('login'); setSection('conta'); }} /></View>}
       </Card>
-      <Card warning><Text style={styles.cardTitle}>Novo: Meu Futuro IA</Text><Text style={styles.cardText}>Escolha um objetivo, informe sua realidade e receba uma leitura direta: perfil financeiro, vazamentos, horas de vida, plano de 7 dias e cenário de longo prazo.</Text><Button label="Começar diagnóstico" primary onPress={() => setSection('futuro')} /></Card>
-      <View style={styles.indexGrid}>{indexCards.map((item) => <View key={item.label} style={styles.indexCard}><Text style={styles.indexLabel}>{item.label}</Text><Text style={styles.indexValue}>{item.value}</Text><Text style={styles.greenText}>{item.change}</Text></View>)}</View>
+      <Card warning><Text style={styles.cardTitle}>Meu Futuro IA</Text><Text style={styles.cardText}>Descubra se seu dinheiro financia seus objetivos ou sabota sua vida. Perfil, a real, vazamentos e plano de 90 dias.</Text><Button label="Começar Futuro IA" primary onPress={() => setSection('futuro')} /></Card>
+      <Card><Text style={styles.cardTitle}>Radar IA</Text><Text style={styles.cardText}>Digite o que quer analisar em linguagem natural. O agente devolve roteiro educativo, riscos e simulação sem recomendar compra ou venda.</Text><Button label="Abrir Radar IA" onPress={() => setSection('radarIa')} /></Card>
       <Card><Text style={styles.cardTitle}>{mood.title}</Text><Text style={styles.cardText}>{mood.text}</Text></Card>
-      <Card><View style={styles.sectionHeader}><Text style={styles.cardTitle}>Painel macro</Text><Text style={styles.sourceText}>{isMacroLive ? 'online BCB' : 'fallback'}</Text></View>{macroItems.map((item) => <View key={item.id || item.label} style={styles.macroRow}><View style={styles.flex1}><Text style={styles.rowTitle}>{item.label}</Text><Text style={styles.rowText}>{item.interpretation}</Text></View><View style={styles.macroValueBox}><Text style={styles.macroValue}>{macroValue(item)}</Text><Text style={styles.sourceText}>{item.source}</Text></View></View>)}</Card>
-      <Card><Text style={styles.cardTitle}>Últimas notícias</Text>{news.map((item) => <View key={item.title} style={styles.newsRow}><Text style={styles.rowTitle}>{item.title}</Text><Text style={styles.rowText}>{item.source}</Text></View>)}</Card>
+    </View>;
+  }
+
+  function renderConta() {
+    return <View style={styles.stack}>
+      <Card highlight><Text style={styles.kicker}>CONTA DO INVESTIDOR</Text><Text style={styles.heroTitle}>{authMode === 'signup' ? 'Crie seu acesso grátis.' : 'Entre com sua conta.'}</Text><Text style={styles.heroText}>Cliente assessorado, assessor e escritório ficam separados no menu Mais.</Text><View style={styles.segment}><Pressable onPress={() => setAuthMode('login')} style={[styles.segmentItem, authMode === 'login' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'login' && styles.segmentTextActive]}>Entrar</Text></Pressable><Pressable onPress={() => setAuthMode('signup')} style={[styles.segmentItem, authMode === 'signup' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'signup' && styles.segmentTextActive]}>Criar grátis</Text></Pressable></View></Card>
+      <Card>{authMode === 'signup' && <><Text style={styles.inputLabel}>Nome completo</Text><TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor="#64748b" style={styles.input} /></>}<Text style={styles.inputLabel}>E-mail</Text><TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="seu@email.com" placeholderTextColor="#64748b" style={styles.input} /><Text style={styles.inputLabel}>Senha</Text><TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" placeholderTextColor="#64748b" style={styles.input} />{message ? <Text style={message.includes('criada') || message.includes('liberado') || message.includes('acessada') ? styles.successBox : styles.errorBox}>{message}</Text> : null}<View style={styles.buttonRow}><Button label={authMode === 'signup' ? 'Criar conta' : 'Entrar'} primary onPress={authMode === 'signup' ? createFreeAccount : loginAccount} /><Button label="Ver app" onPress={() => setSection('hoje')} /></View><Text style={styles.helperText}>Revisão Google: notarizex@gmail.com + qualquer senha com 6+ caracteres.</Text></Card>
     </View>;
   }
 
   function renderFuturo() {
     return <View style={styles.stack}>
-      <Card highlight>
-        <Text style={styles.kicker}>MEU FUTURO IA</Text>
-        <Text style={styles.heroTitle}>Seu extrato precisa virar consciência, não só categoria.</Text>
-        <Text style={styles.heroText}>MVP inicial: diagnóstico por formulário e texto colado. Próximo passo: upload de extrato/fatura e Open Finance consentido.</Text>
-        {!hasPremium && <View style={styles.buttonRow}><Button label="Liberar demo Premium" primary onPress={activatePremiumDemo} /><Button label="Entrar" onPress={() => { setAuthMode('login'); setSection('conta'); }} /></View>}
-      </Card>
-
+      <Card highlight><Text style={styles.kicker}>MEU FUTURO IA</Text><Text style={styles.heroTitle}>Seu extrato precisa virar consciência.</Text><Text style={styles.heroText}>Agora conectado ao F-Insight Agent quando o backend estiver publicado; se estiver offline, o app usa fallback local.</Text>{!hasPremium && <View style={styles.buttonRow}><Button label="Liberar demo Premium" primary onPress={activatePremiumDemo} /><Button label="Entrar" onPress={() => { setAuthMode('login'); setSection('conta'); }} /></View>}</Card>
       <Card><Text style={styles.cardTitle}>1. Objetivo principal</Text><View style={styles.chipWrap}>{objectives.map((item) => <Chip key={item} label={item} active={futureObjective === item} onPress={() => setFutureObjective(item)} />)}</View></Card>
-
       <Card><Text style={styles.cardTitle}>2. Realidade de hoje</Text><Text style={styles.cardText}>Escolha a opção mais honesta. O app precisa mandar a real, não agradar.</Text><View style={styles.chipWrap}>{stages.map((item) => <Chip key={item} label={item} active={futureStage === item} onPress={() => setFutureStage(item)} />)}</View></Card>
-
       <Card><Text style={styles.cardTitle}>3. Números básicos</Text>
         <View style={styles.twoCols}><View style={styles.col}><Text style={styles.inputLabel}>Idade</Text><TextInput value={futureAge} onChangeText={setFutureAge} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.inputLabel}>Dependentes</Text><TextInput value={futureDependents} onChangeText={setFutureDependents} keyboardType="numeric" style={styles.input} /></View></View>
         <Text style={styles.inputLabel}>Renda líquida mensal</Text><TextInput value={futureIncome} onChangeText={setFutureIncome} keyboardType="numeric" placeholder="8000" placeholderTextColor="#64748b" style={styles.input} />
@@ -449,130 +486,114 @@ export default function App() {
         <View style={styles.twoCols}><View style={styles.col}><Text style={styles.inputLabel}>Dívidas totais</Text><TextInput value={futureDebt} onChangeText={setFutureDebt} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.inputLabel}>Guarda/mês</Text><TextInput value={futureSavings} onChangeText={setFutureSavings} keyboardType="numeric" style={styles.input} /></View></View>
         <View style={styles.twoCols}><View style={styles.col}><Text style={styles.inputLabel}>Meta R$</Text><TextInput value={futureGoalAmount} onChangeText={setFutureGoalAmount} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.inputLabel}>Prazo anos</Text><TextInput value={futureGoalYears} onChangeText={setFutureGoalYears} keyboardType="numeric" style={styles.input} /></View></View>
       </Card>
-
-      <Card><Text style={styles.cardTitle}>4. Texto do extrato ou fatura</Text><Text style={styles.cardText}>Cole aqui linhas importantes do extrato/fatura. No MVP isso ajuda a IA a detectar padrões. Depois vamos trocar por upload PDF/CSV/OFX e Open Finance.</Text><TextInput value={futureTransactions} onChangeText={setFutureTransactions} multiline placeholder="Ex: IFOOD 89,90; UBER 42,00; JUROS ROTATIVO 320,00; NETFLIX 55,90..." placeholderTextColor="#64748b" style={[styles.input, styles.textArea]} /><Button label="Gerar diagnóstico" primary onPress={generateFutureReport} /></Card>
-
-      {futureReport && <>
-        <Card warning><Text style={styles.kicker}>A REAL</Text><Text style={styles.heroTitle}>{futureReport.profile}</Text><Text style={styles.cardText}>{futureReport.stage}</Text><Text style={styles.realTalk}>{futureReport.realTalk}</Text></Card>
-        <View style={styles.indexGrid}><View style={styles.indexCard}><Text style={styles.indexLabel}>Saúde financeira</Text><Text style={styles.indexValue}>{futureReport.freedomScore}/100</Text></View><View style={styles.indexCard}><Text style={styles.indexLabel}>Sobra real</Text><Text style={styles.indexValue}>{money(futureReport.monthlyBalance)}</Text></View><View style={styles.indexCard}><Text style={styles.indexLabel}>Poupança</Text><Text style={styles.indexValue}>{(futureReport.savingsRate * 100).toFixed(1).replace('.', ',')}%</Text></View><View style={styles.indexCard}><Text style={styles.indexLabel}>Horas recuperáveis</Text><Text style={styles.indexValue}>{futureReport.workHoursLost.toFixed(1).replace('.', ',')}h</Text></View></View>
-        <Card><Text style={styles.cardTitle}>Oportunidades encontradas</Text>{futureReport.opportunities.map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}</Card>
-        <Card><Text style={styles.cardTitle}>Cenários para {futureReport.targetLabel}</Text><View style={styles.metricsGrid}><Text style={styles.metric}>Conservador {money(futureReport.conservative)}</Text><Text style={styles.metric}>Base {money(futureReport.base)}</Text><Text style={styles.metric}>Acelerado {money(futureReport.accelerated)}</Text></View><Text style={styles.helperText}>Simulação educativa. Não é recomendação de investimento nem promessa de rentabilidade.</Text></Card>
-        <Card><Text style={styles.cardTitle}>Missão da semana</Text><Text style={styles.realTalk}>{futureReport.weekMission}</Text></Card>
-        <Card><Text style={styles.cardTitle}>Plano de 90 dias</Text>{futureReport.ninetyDayPlan.map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}</Card>
-        <Card><Text style={styles.cardTitle}>Open Finance depois</Text><Text style={styles.cardText}>{futureReport.openFinanceNext}</Text><Text style={styles.helperText}>Integração futura: Pluggy/Klavi para leitura consentida; Efí/Open Finance/PISP para ações assistidas em fases posteriores.</Text></Card>
-      </>}
+      <Card><Text style={styles.cardTitle}>4. Extrato/fatura opcional</Text><Text style={styles.cardText}>Cole linhas de extrato ou fatura. Futuramente entra upload PDF/CSV/OFX e Open Finance consentido.</Text><TextInput value={futureTransactions} onChangeText={setFutureTransactions} multiline placeholder="Ex: IFOOD R$ 82,90\nJUROS ROTATIVO R$ 140,00\nNETFLIX R$ 39,90" placeholderTextColor="#64748b" style={[styles.input, styles.textarea]} /><Button label={futureLoading ? 'Analisando...' : 'Gerar diagnóstico'} primary onPress={generateFutureReport} /></Card>
+      {futureLoading && <ActivityIndicator color="#22d3ee" />}
+      {futureReport && <Card warning><Text style={styles.kicker}>A REAL</Text><Text style={styles.heroTitle}>{futureReport.profile}</Text><Text style={styles.cardText}>{futureReport.stage}</Text><Text style={styles.realTalk}>{futureReport.realTalk}</Text><View style={styles.metricsGrid}><Text style={styles.metric}>Saúde {futureReport.freedomScore || 0}/100</Text><Text style={styles.metric}>Sobra {money(futureReport.monthlyBalance)}</Text><Text style={styles.metric}>Vazamento {money(futureReport.leakPotential)}</Text><Text style={styles.metric}>Horas {Number(futureReport.workHoursLost || 0).toFixed(1).replace('.', ',')}</Text></View><Text style={styles.cardTitle}>Cenários</Text><Text style={styles.rowText}>Conservador: {money(futureReport.conservative)}</Text><Text style={styles.rowText}>Base: {money(futureReport.base)}</Text><Text style={styles.rowText}>Acelerado: {money(futureReport.accelerated)}</Text><Text style={styles.cardTitle}>Oportunidades</Text>{(futureReport.opportunities || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.cardTitle}>Missão</Text><Text style={styles.cardText}>{futureReport.weekMission}</Text><Text style={styles.cardTitle}>Plano 90 dias</Text>{(futureReport.ninetyDayPlan || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.notice}>{futureReport.riskNotice}</Text></Card>}
     </View>;
   }
 
-  function renderConta() {
+  function renderRadarIa() {
     return <View style={styles.stack}>
-      <Card highlight><Text style={styles.kicker}>CONTA DO INVESTIDOR</Text><Text style={styles.heroTitle}>{authMode === 'signup' ? 'Crie seu acesso grátis.' : 'Entre com sua conta.'}</Text><Text style={styles.heroText}>Cliente assessorado, assessor e escritório ficam separados no menu Mais.</Text><View style={styles.segment}><Pressable onPress={() => setAuthMode('login')} style={[styles.segmentItem, authMode === 'login' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'login' && styles.segmentTextActive]}>Entrar</Text></Pressable><Pressable onPress={() => setAuthMode('signup')} style={[styles.segmentItem, authMode === 'signup' && styles.segmentItemActive]}><Text style={[styles.segmentText, authMode === 'signup' && styles.segmentTextActive]}>Criar grátis</Text></Pressable></View></Card>
-      <Card>{authMode === 'signup' && <><Text style={styles.inputLabel}>Nome completo</Text><TextInput value={name} onChangeText={setName} placeholder="Seu nome" placeholderTextColor="#64748b" style={styles.input} /></>}<Text style={styles.inputLabel}>E-mail</Text><TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="seu@email.com" placeholderTextColor="#64748b" style={styles.input} /><Text style={styles.inputLabel}>Senha</Text><TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" placeholderTextColor="#64748b" style={styles.input} />{message ? <Text style={message.includes('criada') || message.includes('liberado') || message.includes('acessada') ? styles.successBox : styles.errorBox}>{message}</Text> : null}<View style={styles.buttonRow}><Button label={authMode === 'signup' ? 'Criar conta' : 'Entrar'} primary onPress={authMode === 'signup' ? createFreeAccount : loginAccount} /><Button label="Ver mercado" onPress={() => setSection('hoje')} /></View><Text style={styles.helperText}>Para revisão Google: use o e-mail informado na Play Console e qualquer senha com 6 ou mais caracteres.</Text></Card>
+      <Card highlight><Text style={styles.kicker}>RADAR IA</Text><Text style={styles.heroTitle}>Digite o que quer analisar em linguagem natural.</Text><Text style={styles.heroText}>O agente entrega pesquisa, simulação e riscos. Não recomenda compra, venda nem executa ordens.</Text><View style={styles.rowWrap}><Text style={styles.badge}>{agentOnline ? 'Agent online' : 'Agent fallback'}</Text></View></Card>
+      <Card><Text style={styles.cardTitle}>Pergunta</Text><TextInput value={radarPrompt} onChangeText={setRadarPrompt} multiline placeholder="Ex: analise BTC nos últimos 6 meses" placeholderTextColor="#64748b" style={[styles.input, styles.textareaSmall]} /><Text style={styles.inputLabel}>Ativo opcional</Text><TextInput value={radarSymbol} onChangeText={setRadarSymbol} autoCapitalize="characters" placeholder="PETR4.SA, BTC, IBOV..." placeholderTextColor="#64748b" style={styles.input} /><View style={styles.chipWrap}>{quickRadarPrompts.map((item) => <Chip key={item} label={item} active={radarPrompt === item} onPress={() => setRadarPrompt(item)} />)}</View><Button label={radarLoading ? 'Analisando...' : 'Gerar Radar IA'} primary onPress={generateRadarReport} /></Card>
+      {radarLoading && <ActivityIndicator color="#22d3ee" />}
+      {radarReport && <Card warning><Text style={styles.kicker}>{radarReport.mode || 'RADAR IA'}</Text><Text style={styles.heroTitle}>{radarReport.normalizedSymbol || 'Análise educativa'}</Text><Text style={styles.realTalk}>{radarReport.educationalSummary}</Text><Text style={styles.cardTitle}>Plano de pesquisa</Text>{(radarReport.researchPlan || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.cardTitle}>Plano de simulação</Text>{(radarReport.simulationPlan || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.cardTitle}>Riscos</Text>{(radarReport.risks || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.cardTitle}>Perguntas para você</Text>{(radarReport.investorQuestions || []).map((item) => <Text key={item} style={styles.bullet}>• {item}</Text>)}<Text style={styles.notice}>{radarReport.riskNotice}</Text></Card>}
     </View>;
-  }
-
-  function renderRadar() {
-    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Radar Brasil</Text><Text style={styles.cardText}>Acompanhe ativos, preços e variações.</Text></Card>{loading ? <ActivityIndicator color="#22d3ee" /> : marketData.map((item) => <Pressable key={item.symbol} style={styles.assetRow} onPress={() => openWeb(`/ativo/${cleanSymbol(item.symbol)}`)}><View style={styles.flex1}><Text style={styles.assetTicker}>{cleanSymbol(item.symbol)}</Text><Text style={styles.rowText}>{symbolName(item.symbol)}</Text></View><View style={styles.assetNumbers}><Text style={styles.assetPrice}>{money(item.lastPrice)}</Text><Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text></View><Pressable style={styles.watchButton} onPress={() => toggleWatch(item.symbol)}><Text style={styles.watchButtonText}>{watch.includes(item.symbol) ? '✓' : '+'}</Text></Pressable></Pressable>)}</View>;
-  }
-
-  function renderAtivos() {
-    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Screener fundamentalista</Text><Text style={styles.cardText}>P/L, P/VP, dividend yield e ROE para estudar ativos.</Text></Card>{screenerRows.map((item) => <Card key={item.ticker}><View style={styles.sectionHeader}><View><Text style={styles.assetTicker}>{item.ticker}</Text><Text style={styles.rowText}>{item.name}</Text></View></View><View style={styles.metricsGrid}><Text style={styles.metric}>P/L {item.pe}</Text><Text style={styles.metric}>P/VP {item.pvp}</Text><Text style={styles.metric}>DY {item.dy}</Text><Text style={styles.metric}>ROE {item.roe}</Text></View></Card>)}<Card><Text style={styles.cardTitle}>Graham & Valor</Text><Text style={styles.cardText}>Ranking educativo por margem de segurança, múltiplos e qualidade.</Text><Button label="Ver Premium" primary onPress={() => setSection('premium')} /></Card></View>;
   }
 
   function renderMercado() {
-    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Mercado e macro</Text><Text style={styles.cardText}>Juros, inflação, câmbio e leitura de cenário.</Text></Card>{macroItems.map((item) => <Card key={item.id || item.label}><View style={styles.sectionHeader}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.sourceText}>{item.source}</Text></View><Text style={styles.bigValue}>{macroValue(item)}</Text><Text style={styles.cardText}>{item.interpretation}</Text></Card>)}</View>;
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Mercado e macro</Text><Text style={styles.cardText}>Juros, inflação, câmbio e leitura de cenário.</Text></Card>{loading ? <ActivityIndicator color="#22d3ee" /> : macroItems.map((item) => <Card key={item.id || item.label}><View style={styles.sectionHeader}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.sourceText}>{item.source}</Text></View><Text style={styles.bigValue}>{macroValue(item)}</Text><Text style={styles.cardText}>{item.interpretation}</Text></Card>)}<Card><Text style={styles.cardTitle}>Radar de ativos</Text>{marketData.map((item) => <View key={item.symbol} style={styles.assetRow}><View style={styles.flex1}><Text style={styles.assetTicker}>{cleanSymbol(item.symbol)}</Text><Text style={styles.rowText}>{item.symbol}</Text></View><View style={styles.assetNumbers}><Text style={styles.assetPrice}>{money(item.lastPrice)}</Text><Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text></View></View>)}</Card></View>;
   }
 
   function renderPremium() {
-    return <View style={styles.stack}><Card highlight><Text style={styles.kicker}>{hasPremium ? 'PREMIUM ATIVO' : 'PREMIUM F-INSIGHT'}</Text><Text style={styles.heroTitle}>Premium agora é sobre construir sua vida financeira.</Text><Text style={styles.heroText}>Meu Futuro IA, diagnóstico comportamental, planos de objetivo, screener, alertas e backtesting educativo.</Text>{hasPremium ? <View style={styles.accountPill}><Text style={styles.accountPillText}>Premium liberado para {account?.email}</Text></View> : <View style={styles.buttonRow}><Button label="Entrar" primary onPress={() => { setAuthMode('login'); setSection('conta'); }} /><Button label="Demo Premium" onPress={activatePremiumDemo} /></View>}</Card>{premiumFeatures.map((item) => <Card key={item}><Text style={styles.rowTitle}>✓ {item}</Text></Card>)}<Card warning><Text style={styles.cardTitle}>Meu Futuro IA</Text><Text style={styles.cardText}>Pare de olhar só mercado. Descubra se seu dinheiro está financiando seus objetivos ou sabotando sua vida.</Text><Button label="Abrir Meu Futuro IA" primary onPress={() => setSection('futuro')} /></Card></View>;
+    return <View style={styles.stack}><Card highlight><Text style={styles.kicker}>{hasPremium ? 'PREMIUM ATIVO' : 'PREMIUM F-INSIGHT'}</Text><Text style={styles.heroTitle}>Futuro IA + Radar IA + simulações.</Text><Text style={styles.heroText}>No Android, cobrança comercial deve usar Google Play Billing. Para revisão, o Premium é liberado sem pagamento.</Text>{hasPremium ? <View style={styles.accountPill}><Text style={styles.accountPillText}>Premium liberado para {account?.email}</Text></View> : <View style={styles.buttonRow}><Button label="Entrar" primary onPress={() => { setAuthMode('login'); setSection('conta'); }} /><Button label="Demo Premium" onPress={activatePremiumDemo} /></View>}</Card><Card><Text style={styles.rowTitle}>✓ Meu Futuro IA: objetivos, diagnóstico e plano de longo prazo.</Text></Card><Card><Text style={styles.rowTitle}>✓ Radar IA: análise educativa em linguagem natural.</Text></Card><Card><Text style={styles.rowTitle}>✓ Backtest educativo e simulações sem recomendação de compra/venda.</Text></Card></View>;
   }
 
   function renderMais() {
-    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Minha lista</Text>{watchedAssets.length === 0 ? <Text style={styles.cardText}>Toque no + do radar para acompanhar ativos.</Text> : watchedAssets.map((item) => <View key={item.symbol} style={styles.newsRow}><Text style={styles.rowTitle}>{cleanSymbol(item.symbol)} · {money(item.lastPrice)}</Text><Text style={item.changePercent >= 0 ? styles.greenText : styles.redText}>{pct(item.changePercent)}</Text></View>)}</Card><Card><Text style={styles.cardTitle}>Área Logada institucional</Text><Text style={styles.cardText}>Cliente assessorado, assessor e escritório/admin ficam separados da conta comum.</Text><View style={styles.buttonRow}><Button label="Cliente" onPress={() => openWeb('/cliente')} /><Button label="Assessor" onPress={() => openWeb('/assessor')} /><Button label="Escritório" onPress={() => openWeb('/admin')} /></View></Card><Card><Text style={styles.cardTitle}>Privacidade</Text><View style={styles.buttonRow}><Button label="Privacidade" onPress={() => openWeb('/privacidade')} /><Button label="Excluir conta" onPress={() => openWeb('/excluir-conta')} /></View></Card><Card><Text style={styles.cardTitle}>Sair</Text><Button label="Encerrar sessão" onPress={() => void persistSession(null)} /></Card></View>;
+    return <View style={styles.stack}><Card><Text style={styles.cardTitle}>Área Logada institucional</Text><Text style={styles.cardText}>Cliente assessorado, assessor e escritório/admin ficam separados da conta comum.</Text><View style={styles.buttonRow}><Button label="Cliente" onPress={() => openWeb('/cliente')} /><Button label="Assessor" onPress={() => openWeb('/assessor')} /><Button label="Escritório" onPress={() => openWeb('/admin')} /></View></Card><Card><Text style={styles.cardTitle}>Privacidade</Text><View style={styles.buttonRow}><Button label="Privacidade" onPress={() => openWeb('/privacidade')} /><Button label="Excluir conta" onPress={() => openWeb('/excluir-conta')} /></View></Card>{account && <Card><Text style={styles.cardTitle}>Sessão</Text><Text style={styles.cardText}>{account.name} · {account.email}</Text><Button label="Sair" onPress={() => void persistSession(null)} /></Card>}</View>;
   }
 
-  const content = section === 'hoje' ? renderHoje() : section === 'futuro' ? renderFuturo() : section === 'radar' ? renderRadar() : section === 'ativos' ? renderAtivos() : section === 'mercado' ? renderMercado() : section === 'conta' ? renderConta() : section === 'premium' ? renderPremium() : renderMais();
-  const tabs: Array<{ key: Section; label: string }> = [{ key: 'hoje', label: 'Hoje' }, { key: 'futuro', label: 'Futuro IA' }, { key: 'radar', label: 'Radar' }, { key: 'ativos', label: 'Ativos' }, { key: 'premium', label: 'Premium' }, { key: 'conta', label: account ? 'Conta' : 'Entrar' }, { key: 'mais', label: 'Mais' }];
+  const content = section === 'hoje' ? renderHoje() : section === 'futuro' ? renderFuturo() : section === 'radarIa' ? renderRadarIa() : section === 'mercado' ? renderMercado() : section === 'conta' ? renderConta() : section === 'premium' ? renderPremium() : renderMais();
+  const tabs: Array<{ key: Section; label: string }> = [
+    { key: 'hoje', label: 'Hoje' },
+    { key: 'futuro', label: 'Futuro IA' },
+    { key: 'radarIa', label: 'Radar IA' },
+    { key: 'mercado', label: 'Mercado' },
+    { key: 'conta', label: account ? 'Conta' : 'Entrar' },
+    { key: 'mais', label: 'Mais' },
+  ];
 
-  return <SafeAreaView style={styles.safe}><StatusBar barStyle="light-content" backgroundColor="#020617" /><View style={styles.header}><View style={styles.logo}><Text style={styles.logoText}>FI</Text></View><View style={styles.headerCopy}><Text style={styles.brand}>F-Insight</Text><Text style={styles.headerSub}>{account ? `${account.name} · ${account.plan}` : 'mercado, dados e futuro financeiro'}</Text></View><Pressable onPress={() => setSection('mais')}><Text style={styles.menuIcon}>☰</Text></Pressable></View><ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView><View style={styles.tabbar}>{tabs.map((tab) => <Pressable key={tab.key} onPress={() => setSection(tab.key)} style={[styles.tab, section === tab.key && styles.tabActive]}><Text style={[styles.tabText, section === tab.key && styles.tabTextActive]}>{tab.label}</Text></Pressable>)}</View></SafeAreaView>;
+  return <SafeAreaView style={styles.safe}><StatusBar barStyle="light-content" backgroundColor="#020617" /><View style={styles.header}><View style={styles.logo}><Text style={styles.logoText}>FI</Text></View><View style={styles.headerCopy}><Text style={styles.brand}>F-Insight</Text><Text style={styles.headerSub}>{account ? `${account.name} · ${account.plan}` : 'mercado, futuro e IA'}</Text></View><Pressable onPress={() => setSection('mais')}><Text style={styles.menuIcon}>☰</Text></Pressable></View><ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView><View style={styles.tabbar}>{tabs.map((tab) => <Pressable key={tab.key} onPress={() => setSection(tab.key)} style={[styles.tab, section === tab.key && styles.tabActive]}><Text style={[styles.tabText, section === tab.key && styles.tabTextActive]}>{tab.label}</Text></Pressable>)}</View></SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#020617', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#0f172a', backgroundColor: '#020617' },
-  logo: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0e7490', borderWidth: 2, borderColor: '#22d3ee' },
+  logo: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0e7490', borderWidth: 1, borderColor: '#22d3ee' },
   logoText: { fontSize: 20, color: '#fff', fontWeight: '900' },
   headerCopy: { flex: 1 },
   brand: { color: '#fff', fontWeight: '900', fontSize: 20 },
   headerSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   menuIcon: { color: '#e2e8f0', fontSize: 30, paddingHorizontal: 8 },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 118 },
+  scrollContent: { padding: 16, paddingBottom: 122 },
   stack: { gap: 14 },
   card: { borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 24, padding: 18 },
   cardHighlight: { borderColor: '#164e63', backgroundColor: '#082f49' },
-  cardWarning: { borderColor: '#92400e', backgroundColor: '#431407' },
+  cardWarning: { borderColor: '#92400e', backgroundColor: '#451a03' },
   kicker: { color: '#67e8f9', fontSize: 11, fontWeight: '900', letterSpacing: 1.4, marginBottom: 10 },
-  heroTitle: { color: '#fff', fontSize: 27, lineHeight: 34, fontWeight: '900' },
+  heroTitle: { color: '#fff', fontSize: 27, lineHeight: 33, fontWeight: '900' },
   heroText: { color: '#cbd5e1', fontSize: 15, lineHeight: 23, marginTop: 10 },
-  cardTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  cardTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 8 },
   cardText: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  realTalk: { color: '#fed7aa', fontSize: 16, lineHeight: 24, marginTop: 12, fontWeight: '800' },
+  realTalk: { color: '#ffedd5', fontSize: 16, lineHeight: 24, marginTop: 14, fontWeight: '800' },
+  notice: { color: '#fef3c7', fontSize: 12, lineHeight: 18, marginTop: 14 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   badge: { color: '#67e8f9', backgroundColor: '#083344', fontSize: 11, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, overflow: 'hidden' },
-  chip: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#020617', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 },
-  chipActive: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
-  chipText: { color: '#cbd5e1', fontWeight: '800', fontSize: 12 },
-  chipTextActive: { color: '#020617' },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
-  button: { borderWidth: 1, borderColor: '#334155', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#020617' },
+  button: { borderWidth: 1, borderColor: '#334155', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#020617', marginTop: 12 },
   buttonPrimary: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
   buttonText: { color: '#e2e8f0', fontWeight: '900', fontSize: 13 },
   buttonPrimaryText: { color: '#020617' },
   accountPill: { marginTop: 16, borderRadius: 16, backgroundColor: '#064e3b', padding: 12 },
   accountPillText: { color: '#bbf7d0', fontWeight: '900' },
-  indexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  indexCard: { width: '48%', borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 20, padding: 14 },
-  indexLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '900' },
-  indexValue: { color: '#fff', fontSize: 21, fontWeight: '900', marginTop: 6 },
-  greenText: { color: '#86efac', fontWeight: '900', marginTop: 3 },
-  redText: { color: '#fca5a5', fontWeight: '900', marginTop: 3 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  sourceText: { color: '#67e8f9', fontSize: 11, fontWeight: '900' },
-  macroRow: { flexDirection: 'row', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  macroValueBox: { alignItems: 'flex-end', minWidth: 92 },
-  macroValue: { color: '#fff', fontSize: 18, fontWeight: '900' },
-  flex1: { flex: 1 },
-  rowTitle: { color: '#fff', fontWeight: '900', fontSize: 15, lineHeight: 21 },
-  rowText: { color: '#94a3b8', fontSize: 13, lineHeight: 19, marginTop: 3 },
-  newsRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  inputLabel: { color: '#cbd5e1', fontSize: 12, fontWeight: '900', marginTop: 12, marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#334155', borderRadius: 16, backgroundColor: '#020617', color: '#fff', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
-  textArea: { minHeight: 112, textAlignVertical: 'top', lineHeight: 20 },
-  helperText: { color: '#64748b', fontSize: 12, lineHeight: 18, marginTop: 12 },
-  successBox: { marginTop: 12, color: '#bbf7d0', backgroundColor: '#064e3b', padding: 12, borderRadius: 14, overflow: 'hidden', fontWeight: '800' },
-  errorBox: { marginTop: 12, color: '#fecaca', backgroundColor: '#7f1d1d', padding: 12, borderRadius: 14, overflow: 'hidden', fontWeight: '800' },
-  segment: { flexDirection: 'row', backgroundColor: '#020617', borderRadius: 16, padding: 4, marginTop: 16 },
-  segmentItem: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 12 },
-  segmentItemActive: { backgroundColor: '#22d3ee' },
-  segmentText: { color: '#94a3b8', fontWeight: '900' },
-  segmentTextActive: { color: '#020617' },
-  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1e293b', backgroundColor: '#0f172a', borderRadius: 20, padding: 14 },
-  assetTicker: { color: '#67e8f9', fontWeight: '900', fontSize: 18 },
-  assetNumbers: { alignItems: 'flex-end' },
-  assetPrice: { color: '#fff', fontWeight: '900', fontSize: 15 },
-  watchButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#083344' },
-  watchButtonText: { color: '#67e8f9', fontWeight: '900', fontSize: 17 },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  metric: { color: '#dbeafe', backgroundColor: '#1e293b', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, overflow: 'hidden', fontWeight: '900', fontSize: 12 },
-  bigValue: { color: '#fff', fontWeight: '900', fontSize: 34, marginTop: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  sourceText: { color: '#94a3b8', fontSize: 11, marginTop: 4 },
+  bigValue: { color: '#fff', fontSize: 34, fontWeight: '900', marginTop: 10 },
+  rowTitle: { color: '#fff', fontSize: 16, fontWeight: '900', lineHeight: 22 },
+  rowText: { color: '#cbd5e1', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  bullet: { color: '#fde68a', fontSize: 14, lineHeight: 22, marginTop: 6 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  chip: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#020617', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 },
+  chipActive: { backgroundColor: '#22d3ee', borderColor: '#22d3ee' },
+  chipText: { color: '#cbd5e1', fontWeight: '800', fontSize: 12 },
+  chipTextActive: { color: '#020617' },
+  inputLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '900', marginTop: 12, marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#020617', color: '#fff', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  textarea: { minHeight: 122, textAlignVertical: 'top' },
+  textareaSmall: { minHeight: 88, textAlignVertical: 'top' },
   twoCols: { flexDirection: 'row', gap: 10 },
   col: { flex: 1 },
-  bullet: { color: '#cbd5e1', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  tabbar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 4, paddingHorizontal: 6, paddingTop: 10, paddingBottom: 14, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#0f172a' },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 14 },
-  tabActive: { backgroundColor: '#0f172a' },
-  tabText: { color: '#64748b', fontWeight: '900', fontSize: 10 },
+  segment: { flexDirection: 'row', gap: 8, padding: 4, backgroundColor: '#020617', borderRadius: 16, marginTop: 16 },
+  segmentItem: { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  segmentItemActive: { backgroundColor: '#22d3ee' },
+  segmentText: { color: '#cbd5e1', fontWeight: '900' },
+  segmentTextActive: { color: '#020617' },
+  successBox: { color: '#bbf7d0', backgroundColor: '#064e3b', padding: 12, borderRadius: 14, marginTop: 12, fontWeight: '800' },
+  errorBox: { color: '#fecaca', backgroundColor: '#7f1d1d', padding: 12, borderRadius: 14, marginTop: 12, fontWeight: '800' },
+  helperText: { color: '#94a3b8', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14, marginBottom: 8 },
+  metric: { color: '#fff', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 9, fontWeight: '900', fontSize: 12, overflow: 'hidden' },
+  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: '#1e293b', paddingVertical: 12 },
+  flex1: { flex: 1 },
+  assetTicker: { color: '#67e8f9', fontSize: 17, fontWeight: '900' },
+  assetNumbers: { alignItems: 'flex-end' },
+  assetPrice: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  greenText: { color: '#86efac', fontWeight: '900', marginTop: 4 },
+  redText: { color: '#fca5a5', fontWeight: '900', marginTop: 4 },
+  tabbar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 5, paddingHorizontal: 8, paddingTop: 10, paddingBottom: 14, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#0f172a' },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
+  tabActive: { backgroundColor: '#083344' },
+  tabText: { color: '#94a3b8', fontSize: 10, fontWeight: '900' },
   tabTextActive: { color: '#67e8f9' },
 });
