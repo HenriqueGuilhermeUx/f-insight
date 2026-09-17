@@ -56,23 +56,22 @@ const fallbackIndicators: LiveIndicator[] = [
 ];
 
 const fallbackIndexes = [
-  { label: 'IBOVESPA', value: '178.002', change: 'radar' },
-  { label: 'S&P 500', value: '7.600', change: '+1,48%' },
-  { label: 'Dólar / Real', value: 'R$ 5,10', change: '+0,15%' },
-  { label: 'Bitcoin', value: 'US$ 63.898', change: '+1,90%' },
+  { label: 'IBOVESPA', value: '—', change: 'aguardando dados' },
+  { label: 'S&P 500', value: '—', change: 'aguardando dados' },
+  { label: 'Dólar / Real', value: '—', change: 'aguardando dados' },
+  { label: 'Bitcoin', value: '—', change: 'aguardando dados' },
 ];
 
 const fallbackMacro: MacroItem[] = [
-  { id: 'selic', label: 'Selic Meta', value: 14.0, unit: '% a.a.', source: 'fallback offline', interpretation: 'O app tenta atualizar online pela API F-Insight/BCB.' },
-  { id: 'ipca', label: 'IPCA Mensal', value: 0.38, unit: '% m/m', source: 'fallback offline', interpretation: 'Inflação impacta juros futuros, margens corporativas e poder de compra.' },
-  { id: 'usdbrl', label: 'Dólar Comercial', value: 5.1, unit: 'BRL', source: 'fallback offline', interpretation: 'Câmbio afeta inflação, commodities e empresas exportadoras.' },
-  { id: 'ifix', label: 'IFIX', value: 'radar', unit: '', source: 'painel F-Insight', interpretation: 'FIIs reagem a juros longos, vacância, DY e P/VP.' },
+  { id: 'selic', label: 'Selic Meta', value: '—', unit: '% a.a.', source: 'dados indisponíveis', interpretation: 'Aguardando atualização do Banco Central.' },
+  { id: 'ipca', label: 'IPCA Mensal', value: '—', unit: '% m/m', source: 'dados indisponíveis', interpretation: 'Aguardando atualização da fonte macro.' },
+  { id: 'usdbrl', label: 'Dólar Comercial', value: '—', unit: 'BRL', source: 'dados indisponíveis', interpretation: 'Aguardando atualização da fonte de câmbio.' },
+  { id: 'ifix', label: 'IFIX', value: '—', unit: '', source: 'dados indisponíveis', interpretation: 'Aguardando atualização do mercado.' },
 ];
 
 const fallbackNews: NewsItem[] = [
-  { title: 'Mercado acompanha juros, dólar, commodities e temporada de resultados.', source: 'F-Insight Radar', category: 'Brasil', publishedAt: 'agora' },
-  { title: 'Bancos, petróleo, mineração e energia seguem entre os setores de maior atenção na B3.', source: 'F-Insight Research', category: 'Ações', publishedAt: 'hoje' },
-  { title: 'Juros altos exigem disciplina em valuation, margem de segurança e qualidade.', source: 'F-Insight Macro', category: 'Macro', publishedAt: 'hoje' },
+  { title: 'O feed de notícias está temporariamente indisponível. Use o Radar IA para organizar uma hipótese de estudo.', source: 'F-Insight', category: 'Status', publishedAt: 'offline' },
+  { title: 'Antes de agir, combine fundamentos, liquidez, risco, horizonte e cenário macro.', source: 'F-Insight Educação', category: 'Educação', publishedAt: 'conteúdo educativo' },
 ];
 
 const tools = [
@@ -177,10 +176,13 @@ export default function Home() {
       .catch(() => setNews(fallbackNews));
   }, []);
 
-  const marketData = indicators.length > 0 ? indicators : fallbackIndicators;
+  const marketData = indicators;
   const updatedAt = formatUpdatedAt(macroUpdatedAt || marketData[0]?.fetchedAt);
 
   const marketMood = useMemo(() => {
+    if (marketData.length === 0) {
+      return { label: 'Dados de mercado indisponíveis', text: 'A API está em contingência. O F-Insight não exibe preços fictícios; tente novamente em instantes.' };
+    }
     const avg = marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length;
     if (avg > 0.6) return { label: 'Mercado construtivo', text: 'A amostra acompanhada está positiva. Confirme fundamento, fluxo e notícia antes de agir.' };
     if (avg < -0.6) return { label: 'Mercado pressionado', text: 'A amostra está negativa. Priorize risco, liquidez, qualidade e horizonte.' };
@@ -201,7 +203,7 @@ export default function Home() {
                 Atualizado {updatedAt}
               </span>
               <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-300">
-                {isLive || isMacroLive ? 'dados online' : 'modo educativo/fallback'}
+                {isLive || isMacroLive ? 'dados online' : 'dados temporariamente indisponíveis'}
               </span>
             </div>
 
@@ -233,7 +235,7 @@ export default function Home() {
               <div key={item.label} className="rounded-[1.5rem] border border-slate-700/50 bg-slate-900/75 p-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
                 <p className="mt-3 text-2xl font-black text-white">{item.value}</p>
-                <p className="mt-2 text-sm font-black text-emerald-300">{item.change}</p>
+                <p className="mt-2 text-sm font-bold text-slate-500">{item.change}</p>
               </div>
             ))}
           </div>
@@ -250,7 +252,7 @@ export default function Home() {
             <Link to="/radar" className="text-sm font-bold text-cyan-300 hover:text-cyan-200">Ver radar</Link>
           </div>
           <div className="overflow-hidden rounded-2xl border border-slate-700/50">
-            {marketData.slice(0, 6).map((asset) => {
+            {marketData.length > 0 ? marketData.slice(0, 6).map((asset) => {
               const up = asset.changePercent >= 0;
               return (
                 <Link key={asset.symbol} to={`/ativo/${asset.symbol}`} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-slate-800 bg-slate-950/40 px-4 py-3 last:border-b-0 hover:bg-slate-800/40">
@@ -262,7 +264,11 @@ export default function Home() {
                   <p className={up ? 'font-mono text-sm font-black text-emerald-300' : 'font-mono text-sm font-black text-red-300'}>{formatPercent(asset.changePercent)}</p>
                 </Link>
               );
-            })}
+            }) : (
+              <div className="p-5 text-sm leading-relaxed text-slate-400">
+                Cotações temporariamente indisponíveis. Nenhum preço de demonstração é exibido como se fosse atual.
+              </div>
+            )}
           </div>
         </div>
 
@@ -272,7 +278,7 @@ export default function Home() {
               <h2 className="flex items-center gap-2 text-2xl font-black text-white"><Globe2 className="h-6 w-6 text-emerald-300" /> Painel Macro</h2>
               <p className="text-sm text-slate-400">Selic, inflação, dólar e régua de oportunidade.</p>
             </div>
-            <span className={isMacroLive ? 'text-xs font-bold text-emerald-300' : 'text-xs font-bold text-amber-300'}>{isMacroLive ? 'BCB online' : 'fallback'}</span>
+            <span className={isMacroLive ? 'text-xs font-bold text-emerald-300' : 'text-xs font-bold text-amber-300'}>{isMacroLive ? 'BCB online' : 'dados indisponíveis'}</span>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
             {macro.slice(0, 4).map((item) => (
