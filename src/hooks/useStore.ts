@@ -1,82 +1,116 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { WatchlistItem, Asset } from '@/types';
+import { addWatchlistAsset, fetchWatchlist, removeWatchlistAsset } from '@/services/userPreferencesApi';
 
 interface AppStore {
-  // Theme
   theme: 'dark' | 'light';
   setTheme: (theme: 'dark' | 'light') => void;
   toggleTheme: () => void;
 
-  // Sidebar
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 
-  // Market filter
   selectedMarket: 'br' | 'us' | 'crypto';
   setSelectedMarket: (market: 'br' | 'us' | 'crypto') => void;
 
-  // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 
-  // Watchlist
   watchlist: WatchlistItem[];
   addToWatchlist: (asset: Asset) => void;
   removeFromWatchlist: (ticker: string) => void;
   isInWatchlist: (ticker: string) => boolean;
+  setWatchlist: (items: WatchlistItem[]) => void;
+  hydrateRemoteWatchlist: (userId?: string) => Promise<void>;
 }
 
-// Demo watchlist for initial state
 const demoWatchlist: WatchlistItem[] = [
   { ticker: 'PETR4', name: 'Petrobras PN', addedAt: Date.now() - 86400000 },
   { ticker: 'BTC', name: 'Bitcoin', addedAt: Date.now() - 172800000 },
   { ticker: 'AAPL', name: 'Apple Inc.', addedAt: Date.now() - 259200000 },
 ];
 
+function storedUserId() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const raw = localStorage.getItem('f-insight-auth-user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { id?: string };
+    return String(parsed.id || '');
+  } catch {
+    return '';
+  }
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Theme
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
 
-      // Sidebar
       sidebarOpen: true,
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-      // Market
       selectedMarket: 'br',
       setSelectedMarket: (market) => set({ selectedMarket: market }),
 
-      // Search
       searchQuery: '',
       setSearchQuery: (query) => set({ searchQuery: query }),
 
-      // Watchlist
       watchlist: demoWatchlist,
-      addToWatchlist: (asset) => {
-        const exists = get().watchlist.some((w) => w.ticker === asset.ticker);
-        if (!exists) {
-          set((state) => ({
-            watchlist: [
-              ...state.watchlist,
-              {
-                ticker: asset.ticker,
-                name: asset.name,
-                addedAt: Date.now(),
-              },
-            ],
-          }));
+      setWatchlist: (items) => set({ watchlist: items }),
+      hydrateRemoteWatchlist: async (explicitUserId) => {
+        const userId = explicitUserId || storedUserId();
+        if (!userId) return;
+        try {
+          const remote = await fetchWatchlist(userId);
+          set({ watchlist: remote });
+        } catch {
+          // Mantém o cache local quando a API estiver indisponível.
         }
       },
-      removeFromWatchlist: (ticker) =>
+      addToWatchlist: (asset) => {
+        const exists = get().watchlist.some((w) => w.ticker === asset.ticker);
+        if (exists) return;
+
+        set((state) => ({
+          watchlist: [
+            ...state.watchlist,
+            {
+              ticker: asset.ticker,
+              name: asset.name,
+              addedAt: Date.now(),
+            },
+          ],
+        }));
+
+        const userId = storedUserId();
+        if (userId) {
+          void addWatchlistAsset(userId, asset)
+            .then((result) => {
+              if (result?.watchlist) set({ watchlist: result.watchlist });
+            })
+            .catch(() => undefined);
+        }
+      },
+      removeFromWatchlist: (ticker) => {
         set((state) => ({
           watchlist: state.watchlist.filter((w) => w.ticker !== ticker),
-        })),
+        }));
+
+        const userId = storedUserId();
+        if (userId) {
+          void removeWatchlistAsset(userId, ticker)
+            .then((result) => {
+              if (result?.watchlist) set({ watchlist: result.watchlist });
+            })
+            .catch(() => undefined);
+        }
+      },
       isInWatchlist: (ticker) => get().watchlist.some((w) => w.ticker === ticker),
     }),
     {

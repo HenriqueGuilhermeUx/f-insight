@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { TenantProvider } from './context/TenantContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import UserDataHydrator from './components/auth/UserDataHydrator';
 import Home from './pages/Home';
 import Pricing from './pages/Pricing';
 import PremiumIndividual from './pages/PremiumIndividual';
@@ -49,6 +50,7 @@ function App() {
   return (
     <TenantProvider>
       <AuthProvider>
+        <UserDataHydrator />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
