@@ -38,6 +38,15 @@ const pipeline = [
   { label: 'PDFs gerados no mês', value: 46, icon: Download },
 ];
 
+const professionalTools = [
+  { title: 'Radar IA', text: 'Pergunte sobre ativos, macro, riscos e cenários em linguagem natural.', href: '/ia-financeira', icon: Sparkles },
+  { title: 'Insights', text: 'Centralize ferramentas educativas, comparações e leituras para reuniões.', href: '/insights', icon: BarChart3 },
+  { title: 'Relatórios', text: 'Acesse e prepare materiais de apoio para clientes e reuniões.', href: '/admin/relatorios', icon: FileText },
+  { title: 'Fábrica de conteúdo', text: 'Transforme temas de mercado em conteúdo educativo para relacionamento.', href: '/admin/fabrica-conteudo', icon: MessageSquare },
+  { title: 'Relacionamento', text: 'Organize acompanhamentos, próximas ações e contatos com clientes.', href: '/admin/acompanhamentos', icon: Users },
+  { title: 'Futuro IA', text: 'Veja a experiência de planejamento financeiro que o cliente pode usar.', href: '/meu-futuro', icon: CheckCircle2 },
+];
+
 export default function AdvisorWorkspace() {
   const { tenant, buildReportParams } = useTenant();
 
@@ -98,6 +107,43 @@ export default function AdvisorWorkspace() {
             </div>
           );
         })}
+      </section>
+
+      <section className="mb-8 rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-slate-900/70 to-slate-950 p-5 lg:p-6">
+        <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <span className="mb-2 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
+              <Sparkles className="h-4 w-4" />
+              F-Insight Professional
+            </span>
+            <h2 className="text-2xl font-black text-white lg:text-3xl">Central de inteligência do assessor.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">
+              Mercado, IA, relatórios, conteúdo e relacionamento no mesmo fluxo para reduzir trabalho manual e aumentar clareza com o cliente.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {professionalTools.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <Link
+                key={tool.title}
+                to={tool.href}
+                className="group rounded-2xl border border-slate-700/50 bg-slate-950/55 p-4 transition hover:border-cyan-400/40 hover:bg-slate-950/80"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10">
+                    <Icon className="h-5 w-5 text-cyan-300" />
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-slate-500 transition group-hover:text-cyan-300" />
+                </div>
+                <h3 className="mt-4 font-black text-white">{tool.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">{tool.text}</p>
+              </Link>
+            );
+          })}
+        </div>
       </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
