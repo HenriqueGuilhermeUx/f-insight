@@ -15,6 +15,7 @@ import {
   MessageCircle,
   CreditCard,
   ShieldCheck,
+  Sparkles,
   Zap,
   Globe2,
   BarChart3,
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { label: 'Premium', href: '/premium', icon: CreditCard, public: true },
   { label: 'Assessores', href: '/assessores-escritorios', icon: Building2, public: true },
   { label: 'Área Logada', href: '/area-logada', icon: LogIn, public: true },
+  { label: 'Futuro IA', href: '/meu-futuro', icon: Sparkles, roles: ['admin', 'advisor', 'client'] },
   { label: 'Admin', href: '/admin', icon: Building2, roles: ['admin'] },
   { label: 'Implantação', href: '/admin/onboarding', icon: ShieldCheck, roles: ['admin'] },
   { label: 'Cobrança', href: '/admin/cobranca', icon: CreditCard, roles: ['admin'] },
@@ -79,6 +81,8 @@ const publicBrandPaths = [
   '/aviso-educacional',
   '/onboarding',
   '/cadastro-escritorio',
+  '/meu-futuro',
+  '/futuro-ia',
 ];
 
 interface LayoutProps {
@@ -264,6 +268,7 @@ export function Layout({ children }: LayoutProps) {
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-slate-500">
               <Link to="/radar" className="hover:text-slate-300 transition-colors">Radar</Link>
+              {user && <Link to="/meu-futuro" className="hover:text-slate-300 transition-colors">Futuro IA</Link>}
               <Link to="/premium" className="hover:text-slate-300 transition-colors">Premium</Link>
               <Link to="/assessores-escritorios" className="hover:text-slate-300 transition-colors">Assessores</Link>
               <Link to="/termos" className="hover:text-slate-300 transition-colors">Termos</Link>
