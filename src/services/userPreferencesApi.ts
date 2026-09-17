@@ -2,6 +2,13 @@ import type { Asset, WatchlistItem } from '@/types';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com').replace(/\/$/, '');
 
+interface RemoteWatchlistItem {
+  ticker: string;
+  name: string;
+  type?: string;
+  addedAt: string | number;
+}
+
 export interface RemoteAlert {
   id: string;
   ticker: string;
@@ -32,25 +39,36 @@ function userPathId(userId: string) {
   return encodeURIComponent(String(userId || '').trim());
 }
 
+function normalizeWatchlist(items: RemoteWatchlistItem[]): WatchlistItem[] {
+  return items.map((item) => ({
+    ticker: item.ticker,
+    name: item.name || item.ticker,
+    addedAt: typeof item.addedAt === 'number' ? item.addedAt : (Date.parse(item.addedAt) || Date.now()),
+  }));
+}
+
 export async function fetchWatchlist(userId: string): Promise<WatchlistItem[]> {
   if (!userId) return [];
-  return api<WatchlistItem[]>(`/api/watchlist/${userPathId(userId)}`);
+  const items = await api<RemoteWatchlistItem[]>(`/api/watchlist/${userPathId(userId)}`);
+  return normalizeWatchlist(items);
 }
 
 export async function addWatchlistAsset(userId: string, asset: Asset) {
   if (!userId) return null;
-  return api<{ success: boolean; watchlist: WatchlistItem[] }>(`/api/watchlist/${userPathId(userId)}`, {
+  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(`/api/watchlist/${userPathId(userId)}`, {
     method: 'POST',
     body: JSON.stringify({ ticker: asset.ticker, name: asset.name, type: asset.type }),
   });
+  return { ...result, watchlist: normalizeWatchlist(result.watchlist || []) };
 }
 
 export async function removeWatchlistAsset(userId: string, ticker: string) {
   if (!userId) return null;
-  return api<{ success: boolean; watchlist: WatchlistItem[] }>(
+  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(
     `/api/watchlist/${userPathId(userId)}/${encodeURIComponent(ticker)}`,
     { method: 'DELETE' },
   );
+  return { ...result, watchlist: normalizeWatchlist(result.watchlist || []) };
 }
 
 export async function fetchAlerts(userId: string): Promise<RemoteAlert[]> {
