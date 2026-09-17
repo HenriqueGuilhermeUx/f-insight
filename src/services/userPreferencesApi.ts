@@ -35,8 +35,18 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+function userStorageKey(userId: string) {
+  const input = String(userId || '').trim().toLowerCase();
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `usr_${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
 function userPathId(userId: string) {
-  return encodeURIComponent(String(userId || '').trim());
+  return encodeURIComponent(userStorageKey(userId));
 }
 
 function normalizeWatchlist(items: RemoteWatchlistItem[]): WatchlistItem[] {
@@ -85,7 +95,7 @@ export async function createAlert(input: {
 }) {
   return api<{ success: boolean; alert: RemoteAlert }>('/api/alerts', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, userId: userStorageKey(input.userId) }),
   });
 }
 
