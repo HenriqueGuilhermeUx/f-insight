@@ -3,8 +3,8 @@ name: Web Live Agent CI
 on:
   push:
     branches:
-      - feature/live-agent-user-data
-      - feature/futuro-ia-web
+      - main
+      - 'feature/**'
   workflow_dispatch:
 
 permissions:

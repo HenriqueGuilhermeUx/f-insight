@@ -317,6 +317,46 @@ export default function ClientApp() {
           </div>
         </section>
 
+        <section id="inteligencia" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Link
+            to={user ? '/meu-futuro' : '/cadastro-gratis'}
+            className="group rounded-[2rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/12 via-slate-900 to-slate-950 p-5 transition hover:border-amber-400/50"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-200">
+                  <PiggyBank className="h-3.5 w-3.5" />
+                  Futuro IA
+                </span>
+                <h2 className="text-2xl font-black text-white">Entenda para onde sua vida financeira está indo.</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  Organize renda, gastos, dívidas, capacidade de poupança e objetivos para receber um diagnóstico educativo e um plano de ação.
+                </p>
+              </div>
+              <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-amber-300 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
+
+          <Link
+            to={user ? '/ia-financeira' : '/cadastro-gratis'}
+            className="group rounded-[2rem] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/12 via-slate-900 to-slate-950 p-5 transition hover:border-cyan-400/50"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-200">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Radar IA
+                </span>
+                <h2 className="text-2xl font-black text-white">Pergunte sobre mercado e riscos em linguagem natural.</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  Transforme uma dúvida em roteiro de pesquisa, pontos de atenção, cenários e simulações — sem ordem de compra ou venda.
+                </p>
+              </div>
+              <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-cyan-300 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
+        </section>
+
         <section id="mercado" className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_390px]">
           <div className="rounded-[2rem] border border-slate-700/50 bg-slate-900/70 p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
