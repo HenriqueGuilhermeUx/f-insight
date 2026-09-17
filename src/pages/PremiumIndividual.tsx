@@ -5,8 +5,10 @@ import {
   Brain,
   Calculator,
   CheckCircle2,
+  Clock3,
   LineChart,
   Newspaper,
+  Radar,
   ShieldCheck,
   Sparkles,
   Target,
@@ -18,70 +20,80 @@ const freeItems = [
   'Cotações principais e radar público',
   'Notícias e resumo macro básico',
   'Top sinais gratuitos e conteúdos educativos',
-  'Acesso inicial ao app e relatório semanal',
+  'Conta gratuita para acompanhar o mercado e conhecer o app',
 ];
 
 const premiumItems = [
-  'IA Financeira completa para explicar ativos, indicadores e notícias',
-  'Screener avançado por P/L, P/VP, DY, ROE, setor, risco e liquidez',
-  'Graham & Valor completo com margem de segurança e ranking educativo',
-  'Carteira simulada com evolução, concentração e dividendos estimados',
-  'Alertas inteligentes de preço, variação, dividendos e volatilidade',
-  'Backtesting para testar hipóteses com histórico e métricas de risco',
-  'Relatórios semanais premium e calendário econômico',
-  'Watchlists ilimitadas e comparador de ativos',
+  'Meu Futuro IA para transformar renda, gastos, dívidas e metas em um plano financeiro',
+  'Radar IA em linguagem natural para organizar pesquisas, riscos e cenários de mercado',
+  'Diagnóstico financeiro com perfil, folga mensal, vazamentos e custo em horas de vida',
+  'Cenários de objetivos com premissas conservadora, base e acelerada',
+  'Alertas e watchlists sincronizados com sua conta',
+  'Screener avançado, Graham & Valor e comparador de ativos',
+  'Carteira simulada, concentração e ferramentas de risco',
+  'Backtesting educativo, relatórios premium e calendário econômico',
 ];
 
 const featureCards = [
-  { title: 'IA Financeira', text: 'Pergunte sobre fundamentos, cenário, notícias, indicadores e riscos em linguagem simples.', icon: Brain },
-  { title: 'Screener avançado', text: 'Encontre ativos por valor, dividendos, qualidade, liquidez e filtros combinados.', icon: Target },
-  { title: 'Graham & Valor', text: 'Use critérios fundamentalistas para estudar margem de segurança sem promessa de recomendação.', icon: Calculator },
-  { title: 'Carteira simulada', text: 'Teste ideias, acompanhe concentração, risco e evolução sem mexer no patrimônio real.', icon: WalletCards },
-  { title: 'Alertas inteligentes', text: 'Receba avisos sobre preço, volatilidade, dividendos, eventos e mudanças relevantes.', icon: Bell },
-  { title: 'Backtesting', text: 'Compare estratégias com buy & hold, drawdown, retorno e histórico de operações simuladas.', icon: LineChart },
+  { title: 'Meu Futuro IA', text: 'Veja se seu dinheiro está financiando seus objetivos ou atrasando a vida que você quer construir.', icon: Sparkles },
+  { title: 'Radar IA', text: 'Pergunte em linguagem natural o que quer estudar e receba contexto, riscos e um roteiro de análise.', icon: Radar },
+  { title: 'Plano de 7 e 90 dias', text: 'Transforme o diagnóstico em pequenas ações financeiras e acompanhe sua evolução.', icon: Clock3 },
+  { title: 'IA Financeira', text: 'Entenda fundamentos, cenário, notícias e indicadores sem linguagem desnecessariamente complicada.', icon: Brain },
+  { title: 'Alertas inteligentes', text: 'Acompanhe preço e variações importantes sem transformar alertas em ordens automáticas.', icon: Bell },
+  { title: 'Ferramentas de estudo', text: 'Use screener, Graham & Valor, simulações e backtesting para testar hipóteses.', icon: Calculator },
 ];
 
 export default function PremiumIndividual() {
   return (
     <Layout>
-      <section className="mb-8 rounded-[2rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-950 p-6 lg:p-10">
+      <section className="mb-8 rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 via-slate-900 to-slate-950 p-6 lg:p-10">
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.05fr_0.95fr] xl:items-center">
           <div>
-            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-amber-200">
+            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-emerald-200">
               <Sparkles className="h-3.5 w-3.5" />
-              Premium individual para investidores
+              F-Insight Premium
             </span>
             <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-tight text-white lg:text-6xl">
-              Mais profundidade para estudar o mercado com IA, dados e ferramentas.
+              IA para construir sua vida financeira — não só para olhar o mercado.
             </h1>
             <p className="mt-5 max-w-4xl text-lg leading-relaxed text-slate-300">
-              O Premium é para o investidor que não veio por um escritório ou assessor e quer usar o F-Insight como copiloto financeiro educacional: IA completa, screener, Graham & Valor, alertas, carteira simulada e backtesting.
+              Entenda para onde seu dinheiro está indo, transforme metas em cenários e use o mercado como parte de um plano maior. O Premium reúne Meu Futuro IA, Radar IA, alertas, screener, simulações e ferramentas educativas em uma só experiência.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link to="/cadastro-gratis?mode=signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300">
+              <Link to="/cadastro-gratis?mode=signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-6 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-emerald-300">
                 Criar conta grátis
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/app" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/60 bg-slate-950/60 px-6 py-3 text-sm font-bold text-white transition-colors hover:border-amber-400/60">
-                Abrir app gratuito
+              <Link to="/meu-futuro" className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-slate-950/60 px-6 py-3 text-sm font-bold text-emerald-200 transition-colors hover:border-emerald-300">
+                Conhecer Meu Futuro IA
+              </Link>
+              <Link to="/ia-financeira" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-6 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">
+                Abrir Radar IA
               </Link>
             </div>
-            <p className="mt-4 text-xs font-semibold text-slate-500">Premium comercial no Android deve usar Google Play Billing · Conteúdo educativo · Sem recomendação individualizada</p>
+            <p className="mt-4 text-xs font-semibold text-slate-500">Conteúdo educativo e de simulação · Sem recomendação individualizada · Sem promessa de rentabilidade</p>
           </div>
 
-          <div className="rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-6 text-center">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Plano Premium</p>
+          <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-200">Plano Premium</p>
             <div className="my-5 flex items-end justify-center gap-2">
               <span className="text-6xl font-black text-white">R$ 19,90</span>
               <span className="pb-2 text-sm font-bold text-slate-400">/mês</span>
             </div>
-            <p className="text-sm leading-relaxed text-slate-300">Ideal para pessoa física que quer estudar melhor suas decisões econômicas sem depender de um escritório.</p>
-            <div className="mt-5 rounded-2xl border border-slate-700/50 bg-slate-950/50 p-4 text-left">
-              <p className="mb-2 flex items-center gap-2 text-sm font-black text-white">
-                <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                Separado da estrutura B2B
-              </p>
-              <p className="text-sm text-slate-400">Clientes de assessores continuam usando a área logada do escritório. O Premium individual atende quem chega direto pela plataforma pública.</p>
+            <p className="text-sm leading-relaxed text-slate-300">Para quem quer transformar dados financeiros em clareza, acompanhamento e um plano de evolução.</p>
+            <div className="mt-5 grid gap-3 text-left">
+              <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/50 p-4">
+                <p className="mb-1 flex items-center gap-2 text-sm font-black text-white"><Target className="h-4 w-4 text-emerald-300" /> Vida financeira</p>
+                <p className="text-sm text-slate-400">Metas, gastos, dívidas, reserva e cenários de longo prazo.</p>
+              </div>
+              <div className="rounded-2xl border border-cyan-500/20 bg-slate-950/50 p-4">
+                <p className="mb-1 flex items-center gap-2 text-sm font-black text-white"><LineChart className="h-4 w-4 text-cyan-300" /> Mercado</p>
+                <p className="text-sm text-slate-400">Radar, contexto, riscos, simulações e ferramentas de estudo.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-700/50 bg-slate-950/50 p-4">
+                <p className="mb-1 flex items-center gap-2 text-sm font-black text-white"><ShieldCheck className="h-4 w-4 text-amber-300" /> Guardrails</p>
+                <p className="text-sm text-slate-400">A IA explica e simula; não executa ordens nem decide pelo usuário.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -100,12 +112,12 @@ export default function PremiumIndividual() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6">
+        <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6">
           <h2 className="mb-4 text-2xl font-black text-white">Premium R$ 19,90</h2>
           <div className="space-y-3">
             {premiumItems.map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-slate-950/40 p-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+              <div key={item} className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-slate-950/40 p-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
                 <span className="text-sm text-slate-200">{item}</span>
               </div>
             ))}
@@ -118,8 +130,8 @@ export default function PremiumIndividual() {
           const Icon = item.icon;
           return (
             <div key={item.title} className="rounded-3xl border border-slate-700/40 bg-slate-800/40 p-6">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/10">
-                <Icon className="h-6 w-6 text-amber-300" />
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10">
+                <Icon className="h-6 w-6 text-emerald-300" />
               </div>
               <h3 className="mb-3 text-xl font-black text-white">{item.title}</h3>
               <p className="text-sm leading-relaxed text-slate-400">{item.text}</p>
@@ -128,25 +140,19 @@ export default function PremiumIndividual() {
         })}
       </section>
 
-      <section className="rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6 lg:p-8">
+      <section className="mb-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6 lg:p-8">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <h2 className="mb-2 flex items-center gap-2 text-3xl font-black text-white">
               <Newspaper className="h-7 w-7 text-cyan-300" />
-              Aprofundamento sem tirar valor do gratuito
+              Vida financeira + inteligência de mercado
             </h2>
-            <p className="max-w-4xl text-slate-300">A página principal continua útil e aberta. O Premium entra quando o usuário quer personalização, automação, IA completa e ferramentas mais profundas.</p>
+            <p className="max-w-4xl text-slate-300">O F-Insight começa pela sua realidade financeira e adiciona ferramentas de mercado quando elas ajudam a estudar uma decisão. O objetivo é mais clareza, não mais ruído.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/graham-valor" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">
-              Graham & Valor
-            </Link>
-            <Link to="/screener-acoes" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">
-              Screener
-            </Link>
-            <Link to="/backtesting" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">
-              Backtesting
-            </Link>
+            <Link to="/graham-valor" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">Graham & Valor</Link>
+            <Link to="/screener-acoes" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">Screener</Link>
+            <Link to="/backtesting" className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/40 bg-slate-950/40 px-5 py-3 text-sm font-bold text-cyan-200 transition-colors hover:border-cyan-300">Backtesting</Link>
           </div>
         </div>
       </section>
