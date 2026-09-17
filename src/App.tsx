@@ -39,6 +39,7 @@ import AdminContents from './pages/AdminContents';
 import AdminContentFactory from './pages/AdminContentFactory';
 import ToolsHub from './pages/ToolsHub';
 import FinancialCopilot from './pages/FinancialCopilot';
+import FutureAI from './pages/FutureAI';
 import ContactCenter from './pages/ContactCenter';
 import ScheduledUpdates from './pages/ScheduledUpdates';
 import DataOperations from './pages/DataOperations';
@@ -99,6 +100,8 @@ function App() {
             <Route path="/admin/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
             <Route path="/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FinancialCopilot /></ProtectedRoute>} />
             <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><FinancialCopilot /></ProtectedRoute>} />
+            <Route path="/meu-futuro" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FutureAI /></ProtectedRoute>} />
+            <Route path="/futuro-ia" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FutureAI /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
             <Route path="/admin/insights" element={<ProtectedRoute roles={['admin', 'advisor']}><ToolsHub /></ProtectedRoute>} />
             <Route path="/white-label" element={<ProtectedRoute roles={['admin']}><WhiteLabelSettings /></ProtectedRoute>} />
