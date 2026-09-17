@@ -1,0 +1,40 @@
+name: Web Live Agent CI
+
+on:
+  push:
+    branches:
+      - feature/live-agent-user-data
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript and production build
+        env:
+          VITE_API_URL: https://f-insight-api.onrender.com
+        run: |
+          pnpm exec tsc -b
+          pnpm exec vite build
+
+      - name: Backend public health smoke test
+        run: |
+          curl --retry 5 --retry-delay 4 --fail --silent --show-error https://f-insight-api.onrender.com/health | grep -q '"status":"ok"'
+          curl --retry 5 --retry-delay 4 --fail --silent --show-error https://f-insight-api.onrender.com/api/agent/health | grep -q 'finsight-agent'
