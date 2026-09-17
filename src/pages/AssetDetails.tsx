@@ -1,40 +1,68 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Star,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  BarChart3,
-  PieChart,
-  Bell,
-  Share2,
-  ExternalLink,
-  RefreshCw,
-  ChevronRight,
-  Clock,
-  DollarSign,
   Activity,
+  ArrowLeft,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  BookOpen,
+  Brain,
+  Clock,
+  ExternalLink,
+  ShieldCheck,
+  Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatPrice, formatPercent, formatLargeNumber, getChangeColor, getScoreColor, getGradeFromScore, getAssetTypeLabel } from '@/lib/utils';
+import {
+  formatLargeNumber,
+  formatPercent,
+  formatPrice,
+  getAssetTypeLabel,
+  getChangeColor,
+} from '@/lib/utils';
 import { fetchAssetByTicker, mockData } from '@/services/marketData';
 import { useAppStore } from '@/hooks/useStore';
 import { Layout } from '@/components/layout/Layout';
-import { Asset } from '@/types';
+import API_ENDPOINTS from '@/config/api';
+import type { Asset } from '@/types';
 
-function MetricCard({ label, value, subValue, trend }: { label: string; value: string; subValue?: string; trend?: 'up' | 'down' | 'neutral' }) {
+interface NewsItem {
+  id?: string;
+  title: string;
+  summary?: string;
+  source?: string;
+  url?: string;
+  publishedAt?: string;
+}
+
+function MetricCard({
+  label,
+  value,
+  subValue,
+  trend,
+}: {
+  label: string;
+  value: string;
+  subValue?: string;
+  trend?: 'up' | 'down' | 'neutral';
+}) {
   return (
-    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-      <p className="text-xs text-slate-400 mb-1">{label}</p>
-      <p className="text-lg font-bold font-mono text-white">{value}</p>
+    <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+      <p className="mb-1 text-xs text-slate-400">{label}</p>
+      <p className="font-mono text-lg font-bold text-white">{value}</p>
       {subValue && (
-        <p className={cn(
-          'text-xs font-mono mt-1',
-          trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-red-400' : 'text-slate-400'
-        )}>
+        <p
+          className={cn(
+            'mt-1 text-xs font-mono',
+            trend === 'up'
+              ? 'text-emerald-400'
+              : trend === 'down'
+                ? 'text-red-400'
+                : 'text-slate-400'
+          )}
+        >
           {subValue}
         </p>
       )}
@@ -42,139 +70,242 @@ function MetricCard({ label, value, subValue, trend }: { label: string; value: s
   );
 }
 
-function TradingViewWidget() {
-  // TradingView Lightweight Charts widget
+function tradingViewSymbol(asset: Asset) {
+  const ticker = String(asset.ticker || '').trim().toUpperCase();
+  if (ticker.includes(':')) return ticker;
+
+  const clean = ticker.replace(/\.SA$/i, '');
+
+  if (ticker.endsWith('.SA') || asset.currency === 'BRL' || asset.country === 'BR') {
+    return `BMFBOVESPA:${clean}`;
+  }
+
+  if (asset.type === 'crypto') {
+    const crypto = clean.replace(/-USD$/i, '').replace(/USDT$/i, '');
+    return `BINANCE:${crypto}USDT`;
+  }
+
+  return `NASDAQ:${clean}`;
+}
+
+function TradingViewWidget({ asset }: { asset: Asset }) {
+  const container = useRef<HTMLDivElement | null>(null);
+  const symbol = tradingViewSymbol(asset);
+
+  useEffect(() => {
+    const node = container.current;
+    if (!node) return;
+
+    node.innerHTML = '';
+
+    const widget = document.createElement('div');
+    widget.className = 'tradingview-widget-container__widget';
+    widget.style.height = 'calc(100% - 32px)';
+    widget.style.width = '100%';
+
+    const attribution = document.createElement('div');
+    attribution.className = 'tradingview-widget-copyright';
+    attribution.innerHTML =
+      '<a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span style="color:#67e8f9">Gráfico</span></a><span style="color:#64748b"> by TradingView</span>';
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval: 'D',
+      timezone: 'exchange',
+      theme: 'dark',
+      backgroundColor: 'rgba(15, 23, 42, 1)',
+      gridColor: 'rgba(71, 85, 105, 0.18)',
+      style: '1',
+      locale: 'br',
+      hide_side_toolbar: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      hide_volume: false,
+      allow_symbol_change: true,
+      save_image: false,
+      calendar: false,
+      support_host: 'https://www.tradingview.com',
+    });
+
+    node.appendChild(widget);
+    node.appendChild(attribution);
+    node.appendChild(script);
+
+    return () => {
+      node.innerHTML = '';
+    };
+  }, [symbol]);
+
   return (
-    <div className="bg-slate-800/40 rounded-xl overflow-hidden border border-slate-700/40">
-      <div className="p-4 border-b border-slate-700/40 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
-          <span className="text-sm text-slate-400">Gráfico em Tempo Real</span>
+    <section className="overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-900/60">
+      <div className="flex flex-col gap-2 border-b border-slate-700/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-black text-white">
+            <BarChart3 className="h-4 w-4 text-cyan-300" />
+            Gráfico avançado
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Visualização TradingView · símbolo {symbol}
+          </p>
         </div>
-        <div className="flex gap-2">
-          {['1D', '1S', '1M', '1A'].map((period) => (
-            <button
-              key={period}
-              className={cn(
-                'px-3 py-1 rounded text-xs font-medium transition-colors',
-                period === '1M'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-slate-700/50 text-slate-400 hover:text-white'
-              )}
-            >
-              {period}
-            </button>
+        <a
+          href="https://www.tradingview.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-bold text-cyan-300 hover:text-cyan-200"
+        >
+          Abrir TradingView <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </div>
+      <div
+        ref={container}
+        className="tradingview-widget-container h-[430px] w-full lg:h-[520px]"
+      />
+    </section>
+  );
+}
+
+function RelatedNews({ ticker }: { ticker: string }) {
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<'asset' | 'market' | 'empty'>('empty');
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setLoading(true);
+      const symbol = ticker.toUpperCase();
+
+      try {
+        const response = await fetch(API_ENDPOINTS.news.stock(symbol));
+        if (response.ok) {
+          const payload = (await response.json()) as NewsItem[];
+          if (active && Array.isArray(payload) && payload.length > 0) {
+            setItems(payload.slice(0, 5));
+            setMode('asset');
+            return;
+          }
+        }
+      } catch {
+        // Usa o feed geral abaixo.
+      }
+
+      try {
+        const response = await fetch(API_ENDPOINTS.news.list);
+        if (!response.ok) throw new Error('market-news-unavailable');
+        const payload = (await response.json()) as NewsItem[];
+        if (active && Array.isArray(payload)) {
+          setItems(payload.slice(0, 5));
+          setMode(payload.length > 0 ? 'market' : 'empty');
+        }
+      } catch {
+        if (active) {
+          setItems([]);
+          setMode('empty');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [ticker]);
+
+  return (
+    <section className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-black text-white">
+            <Clock className="h-5 w-5 text-cyan-300" />
+            Notícias e contexto
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {mode === 'asset'
+              ? 'Notícias recentes relacionadas ao ativo.'
+              : mode === 'market'
+                ? 'Feed de mercado enquanto não há notícia específica disponível.'
+                : 'Feed ao vivo indisponível no momento.'}
+          </p>
+        </div>
+        <Link to="/noticias" className="text-xs font-bold text-cyan-300 hover:text-cyan-200">
+          Ver feed
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-20 animate-pulse rounded-xl bg-slate-900/70" />
           ))}
         </div>
-      </div>
-      <div className="h-[400px] bg-slate-900/50 flex items-center justify-center">
-        <div className="text-center">
-          <BarChart3 className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">TradingView Chart</p>
-          <p className="text-xs text-slate-500 mt-1">Widget integrado</p>
+      ) : items.length > 0 ? (
+        <div className="space-y-3">
+          {items.map((item, index) => (
+            <a
+              key={item.id || `${item.title}-${index}`}
+              href={item.url || '#'}
+              target={item.url ? '_blank' : undefined}
+              rel={item.url ? 'noopener noreferrer' : undefined}
+              className="block rounded-xl border border-slate-800 bg-slate-950/50 p-4 transition hover:border-cyan-500/30"
+            >
+              <p className="text-sm font-semibold leading-relaxed text-white">{item.title}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span>{item.source || 'F-Insight Radar'}</span>
+                {item.publishedAt && <span>· {new Date(item.publishedAt).toLocaleDateString('pt-BR')}</span>}
+              </div>
+            </a>
+          ))}
         </div>
-      </div>
-    </div>
+      ) : (
+        <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-sm text-slate-400">
+          Nenhuma notícia disponível agora. O restante da página continua utilizável para estudo do ativo.
+        </div>
+      )}
+    </section>
   );
 }
 
-function TechnicalIndicators() {
-  const indicators = [
-    { name: 'RSI (14)', value: '68.5', signal: 'buy' },
-    { name: 'MACD', value: '1.25', signal: 'buy' },
-    { name: 'MM50', value: '45.20', signal: 'neutral' },
-    { name: 'MM200', value: '42.15', signal: 'sell' },
-    { name: 'BB Lower', value: '38.50', signal: 'neutral' },
-    { name: 'Volume', value: '48.5M', signal: 'neutral' },
-  ];
-
-  const getSignalColor = (signal: string) => {
-    switch (signal) {
-      case 'buy': return 'text-emerald-400 bg-emerald-500/20';
-      case 'sell': return 'text-red-400 bg-red-500/20';
-      default: return 'text-amber-400 bg-amber-500/20';
-    }
-  };
-
+function StudyActions({ ticker }: { ticker: string }) {
   return (
-    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-      <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <Activity className="w-4 h-4 text-cyan-400" />
-        Indicadores Técnicos
-      </h3>
-      <div className="grid grid-cols-3 gap-3">
-        {indicators.map((ind) => (
-          <div key={ind.name} className="bg-slate-900/50 rounded-lg p-3">
-            <p className="text-xs text-slate-400">{ind.name}</p>
-            <p className="text-lg font-bold font-mono text-white">{ind.value}</p>
-            <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium mt-1 inline-block', getSignalColor(ind.signal))}>
-              {ind.signal === 'buy' ? 'COMPRA' : ind.signal === 'sell' ? 'VENDA' : 'NEUTRO'}
-            </span>
-          </div>
-        ))}
+    <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-5">
+      <h2 className="flex items-center gap-2 text-lg font-black text-white">
+        <BookOpen className="h-5 w-5 text-cyan-300" />
+        Próximos estudos
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-slate-300">
+        Use valuation, contexto macro, notícias e IA para formular uma hipótese antes de tomar qualquer decisão.
+      </p>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Link
+          to="/graham-valor"
+          className="rounded-xl border border-cyan-500/20 bg-slate-950/50 p-4 text-sm font-bold text-cyan-100 hover:border-cyan-400/50"
+        >
+          Graham & Valor
+        </Link>
+        <Link
+          to="/ia-financeira"
+          className="rounded-xl border border-cyan-500/20 bg-slate-950/50 p-4 text-sm font-bold text-cyan-100 hover:border-cyan-400/50"
+        >
+          Radar IA · {ticker.replace('.SA', '')}
+        </Link>
+        <Link
+          to="/alertas"
+          className="rounded-xl border border-cyan-500/20 bg-slate-950/50 p-4 text-sm font-bold text-cyan-100 hover:border-cyan-400/50"
+        >
+          Criar alerta
+        </Link>
       </div>
-    </div>
-  );
-}
-
-function FundamentalData({ asset }: { asset: Asset }) {
-  const fundamentals = [
-    { label: 'P/L', value: '8.5x', good: true },
-    { label: 'P/VP', value: '1.2x', good: true },
-    { label: 'DY', value: '8.5%', good: true },
-    { label: 'ROE', value: '18.5%', good: true },
-    { label: 'Dívida/PL', value: '0.85', good: true },
-    { label: 'Margem', value: '32.5%', good: true },
-  ];
-
-  return (
-    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-      <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <PieChart className="w-4 h-4 text-cyan-400" />
-        Fundamentos
-      </h3>
-      <div className="grid grid-cols-3 gap-3">
-        {fundamentals.map((f) => (
-          <div key={f.label} className="bg-slate-900/50 rounded-lg p-3">
-            <p className="text-xs text-slate-400">{f.label}</p>
-            <p className={cn('text-lg font-bold font-mono', f.good ? 'text-emerald-400' : 'text-red-400')}>
-              {f.value}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RelatedNews() {
-  const news = mockData.news.slice(0, 3);
-
-  return (
-    <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-      <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <Clock className="w-4 h-4 text-cyan-400" />
-        Notícias Relacionadas
-      </h3>
-      <div className="space-y-3">
-        {news.map((item) => (
-          <a
-            key={item.id}
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block bg-slate-900/50 rounded-lg p-3 hover:bg-slate-800/50 transition-colors group"
-          >
-            <p className="text-sm text-white group-hover:text-cyan-300 line-clamp-2">{item.title}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-slate-500">{item.source}</span>
-              <span className="text-xs text-slate-600">•</span>
-              <span className="text-xs text-slate-500">há 2h</span>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -182,17 +313,22 @@ export default function AssetDetails() {
   const { ticker } = useParams<{ ticker: string }>();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dataMode, setDataMode] = useState<'api' | 'fallback'>('api');
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useAppStore();
   const inWatchlist = asset ? isInWatchlist(asset.ticker) : false;
 
   useEffect(() => {
-    const loadAsset = async () => {
+    let active = true;
+
+    async function loadAsset() {
       setLoading(true);
       try {
         const data = await fetchAssetByTicker(ticker || '');
-        setAsset(data);
-      } catch (e) {
-        // Try to find in mock data
+        if (active) {
+          setAsset(data);
+          setDataMode('api');
+        }
+      } catch {
         const allAssets = [
           ...mockData.stocks.br,
           ...mockData.stocks.us,
@@ -200,23 +336,34 @@ export default function AssetDetails() {
           ...mockData.etfs,
           ...mockData.fiis,
         ];
-        const found = allAssets.find(a => a.ticker.toUpperCase() === (ticker || '').toUpperCase());
-        setAsset(found || null);
+        const found = allAssets.find(
+          (item) => item.ticker.toUpperCase() === (ticker || '').toUpperCase()
+        );
+        if (active) {
+          setAsset(found || null);
+          setDataMode('fallback');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
+    }
+
+    void loadAsset();
+    return () => {
+      active = false;
     };
-    loadAsset();
   }, [ticker]);
 
   if (loading) {
     return (
       <Layout>
         <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 bg-slate-800 rounded" />
-          <div className="h-64 bg-slate-800 rounded-xl" />
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-slate-800 rounded-xl" />)}
+          <div className="h-8 w-48 rounded bg-slate-800" />
+          <div className="h-[430px] rounded-2xl bg-slate-800" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-24 rounded-xl bg-slate-800" />
+            ))}
           </div>
         </div>
       </Layout>
@@ -226,9 +373,9 @@ export default function AssetDetails() {
   if (!asset) {
     return (
       <Layout>
-        <div className="text-center py-20">
+        <div className="py-20 text-center">
           <p className="text-xl text-slate-400">Ativo não encontrado</p>
-          <Link to="/radar" className="text-cyan-400 hover:text-cyan-300 mt-4 inline-block">
+          <Link to="/radar" className="mt-4 inline-block text-cyan-400 hover:text-cyan-300">
             Voltar ao Radar
           </Link>
         </div>
@@ -240,140 +387,158 @@ export default function AssetDetails() {
 
   return (
     <Layout>
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm mb-6">
-        <Link to="/radar" className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
+      <div className="mb-6 flex items-center gap-2 text-sm">
+        <Link
+          to="/radar"
+          className="flex items-center gap-1 text-slate-400 transition-colors hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Radar
         </Link>
         <span className="text-slate-600">/</span>
-        <span className="text-white font-medium">{asset.ticker}</span>
+        <span className="font-medium text-white">{asset.ticker}</span>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row items-start justify-between gap-6 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-white">{asset.ticker}</h1>
-            <span className={cn(
-              'text-sm px-2 py-1 rounded font-medium',
-              asset.type === 'stock' ? 'bg-blue-500/20 text-blue-400' :
-              asset.type === 'etf' ? 'bg-purple-500/20 text-purple-400' :
-              asset.type === 'fii' ? 'bg-amber-500/20 text-amber-400' :
-              asset.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
-              'bg-slate-500/20 text-slate-400'
-            )}>
-              {getAssetTypeLabel(asset.type)}
-            </span>
-          </div>
-          <p className="text-slate-400">{asset.name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => inWatchlist ? removeFromWatchlist(asset.ticker) : addToWatchlist(asset)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all',
-              inWatchlist
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
-                : 'bg-slate-800/50 text-slate-400 border border-slate-700/40 hover:text-amber-400 hover:border-amber-500/30'
-            )}
-          >
-            <Star className={cn('w-4 h-4', inWatchlist && 'fill-current')} />
-            {inWatchlist ? 'Na Watchlist' : 'Adicionar'}
-          </button>
-          <button className="p-2 bg-slate-800/50 rounded-xl text-slate-400 hover:text-white border border-slate-700/40">
-            <Bell className="w-5 h-5" />
-          </button>
-          <button className="p-2 bg-slate-800/50 rounded-xl text-slate-400 hover:text-white border border-slate-700/40">
-            <Share2 className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Price Section */}
-      <div className="bg-slate-800/40 rounded-xl p-6 border border-slate-700/40 mb-6">
-        <div className="flex items-end gap-6">
+      <section className="mb-6 rounded-3xl border border-slate-700/40 bg-slate-900/60 p-5 lg:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs text-slate-400 mb-1">Preço Atual</p>
-            <p className="text-4xl font-bold font-mono text-white">
-              {formatPrice(asset.price, asset.currency)}
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-black text-white">{asset.ticker}</h1>
+              <span className="rounded bg-cyan-500/10 px-2 py-1 text-xs font-bold text-cyan-300">
+                {getAssetTypeLabel(asset.type)}
+              </span>
+              <span
+                className={cn(
+                  'rounded px-2 py-1 text-xs font-bold',
+                  dataMode === 'api'
+                    ? 'bg-emerald-500/10 text-emerald-300'
+                    : 'bg-amber-500/10 text-amber-300'
+                )}
+              >
+                {dataMode === 'api' ? 'API F-Insight' : 'modo educativo'}
+              </span>
+            </div>
+            <p className="text-slate-400">{asset.name}</p>
+
+            <div className="mt-5 flex flex-wrap items-end gap-4">
+              <p className="font-mono text-4xl font-black text-white">
+                {formatPrice(asset.price, asset.currency)}
+              </p>
+              <div
+                className={cn(
+                  'flex items-center gap-1 rounded-lg px-3 py-1.5',
+                  isPositive
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-red-500/20 text-red-400'
+                )}
+              >
+                {isPositive ? (
+                  <ArrowUpRight className="h-4 w-4" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4" />
+                )}
+                <span className="font-mono font-bold">{formatPercent(asset.changePercent)}</span>
+              </div>
+              <span className={cn('pb-1 font-mono text-sm', getChangeColor(asset.change))}>
+                {isPositive ? '+' : ''}
+                {asset.change.toFixed(2)} {asset.currency}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() =>
+                inWatchlist ? removeFromWatchlist(asset.ticker) : addToWatchlist(asset)
+              }
+              className={cn(
+                'flex items-center gap-2 rounded-xl border px-4 py-2 font-medium transition-all',
+                inWatchlist
+                  ? 'border-amber-500/30 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                  : 'border-slate-700/40 bg-slate-800/50 text-slate-400 hover:border-amber-500/30 hover:text-amber-400'
+              )}
+            >
+              <Star className={cn('h-4 w-4', inWatchlist && 'fill-current')} />
+              {inWatchlist ? 'Na Watchlist' : 'Acompanhar'}
+            </button>
+            <Link
+              to="/alertas"
+              className="rounded-xl border border-slate-700/40 bg-slate-800/50 p-2 text-slate-400 hover:text-white"
+              aria-label="Abrir alertas"
+            >
+              <Bell className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+
+        {dataMode === 'fallback' && (
+          <div className="mt-5 flex gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+            <p className="text-sm leading-relaxed text-amber-100/80">
+              A API do ativo não respondeu e esta parte da tela está usando valores educativos de contingência. O gráfico TradingView e os feeds externos seguem suas próprias fontes.
             </p>
           </div>
-          <div className="flex items-center gap-4 pb-2">
-            <div className={cn(
-              'flex items-center gap-1 px-3 py-1.5 rounded-lg',
-              isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-            )}>
-              {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-              <span className="font-mono font-bold">{formatPercent(asset.changePercent)}</span>
-            </div>
-            <div className={cn('font-mono', getChangeColor(asset.change))}>
-              {isPositive ? '+' : ''}{asset.change.toFixed(2)} {asset.currency}
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </section>
 
-      {/* Chart */}
       <div className="mb-6">
-        <TradingViewWidget />
+        <TradingViewWidget asset={asset} />
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
-          label="Variação Dia"
+          label="Variação do dia"
           value={formatPercent(asset.changePercent)}
           subValue={`${asset.change >= 0 ? '+' : ''}${asset.change.toFixed(2)} ${asset.currency}`}
           trend={isPositive ? 'up' : 'down'}
         />
+        <MetricCard label="Volume" value={formatLargeNumber(asset.volume)} trend="neutral" />
         <MetricCard
-          label="Volume"
-          value={formatLargeNumber(asset.volume)}
+          label="Market cap"
+          value={asset.marketCap ? formatLargeNumber(asset.marketCap) : 'N/D'}
           trend="neutral"
         />
         <MetricCard
-          label="Market Cap"
-          value={asset.marketCap ? formatLargeNumber(asset.marketCap) : 'N/A'}
-          trend="neutral"
-        />
-        <MetricCard
-          label="Tipo"
+          label="Classe"
           value={getAssetTypeLabel(asset.type)}
           subValue={asset.sector || asset.country || ''}
           trend="neutral"
         />
       </div>
 
-      {/* Technical & Fundamental */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <TechnicalIndicators />
-        <FundamentalData asset={asset} />
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <RelatedNews ticker={asset.ticker} />
+
+        <section className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-5">
+          <h2 className="flex items-center gap-2 text-lg font-black text-white">
+            <Brain className="h-5 w-5 text-cyan-300" />
+            Como estudar este ativo
+          </h2>
+          <div className="mt-4 space-y-3">
+            {[
+              'Compare preço e fundamentos sem transformar um único múltiplo em decisão.',
+              'Leia notícias e eventos corporativos junto com o cenário macro.',
+              'Observe liquidez, volatilidade, concentração e horizonte.',
+              'Use simulações e hipóteses; não trate cenários como previsão.',
+            ].map((item) => (
+              <div
+                key={item}
+                className="flex gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3"
+              >
+                <Activity className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+                <p className="text-sm leading-relaxed text-slate-300">{item}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
 
-      {/* Related News */}
-      <RelatedNews />
+      <StudyActions ticker={asset.ticker} />
 
-      {/* Graham Score (if applicable) */}
-      <div className="mt-6 bg-gradient-to-r from-emerald-900/30 to-transparent rounded-xl p-6 border border-emerald-500/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-              <span className="text-2xl font-black text-emerald-400">78</span>
-            </div>
-            <div>
-              <p className="text-xs text-emerald-400 font-medium mb-1">Graham Score</p>
-              <p className="text-xl font-bold text-white">Boa oportunidade de investimento</p>
-              <p className="text-sm text-slate-400 mt-1">P/L de 8.5x com DY de 8.5% - Margem de segurança elevada</p>
-            </div>
-          </div>
-          <Link
-            to="/graham"
-            className="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors"
-          >
-            Ver Análise Completa
-          </Link>
-        </div>
+      <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+        <p className="text-xs leading-relaxed text-amber-100/80">
+          Conteúdo informativo e educacional. O F-Insight não está recomendando compra ou venda deste ativo. Dados de terceiros podem ter atraso, regras próprias de mercado e disponibilidade variável.
+        </p>
       </div>
     </Layout>
   );
