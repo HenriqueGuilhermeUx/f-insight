@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/live-agent-user-data
+      - feature/futuro-ia-web
   workflow_dispatch:
 
 permissions:
@@ -37,7 +38,12 @@ jobs:
           pnpm exec tsc -b
           pnpm exec vite build
 
-      - name: Backend public health smoke test
+      - name: Backend public health and agent smoke test
         run: |
+          set -euo pipefail
           curl --retry 5 --retry-delay 4 --fail --silent --show-error https://f-insight-api.onrender.com/health | grep -q '"status":"ok"'
           curl --retry 5 --retry-delay 4 --fail --silent --show-error https://f-insight-api.onrender.com/api/agent/health | grep -q 'finsight-agent'
+          curl --retry 5 --retry-delay 4 --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d '{"objective":"Montar reserva","income":5000,"expenses":3800,"savings":300,"debt":0,"targetAmount":50000,"years":5}' \
+            https://f-insight-api.onrender.com/api/agent/life-plan | grep -q 'life-plan-analysis'
