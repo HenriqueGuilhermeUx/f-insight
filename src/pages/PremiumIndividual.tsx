@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import API_ENDPOINTS from '@/config/api';
 
 const freeItems = [
@@ -60,6 +61,15 @@ interface CheckoutResponse {
   };
 }
 
+async function billingHeaders() {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!supabase) return headers;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 export default function PremiumIndividual() {
   const { user } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -74,9 +84,10 @@ export default function PremiumIndividual() {
     setPixCode('');
 
     try {
+      const headers = await billingHeaders();
       const response = await fetch(API_ENDPOINTS.billing.checkout, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           tenantId: user.id,
           planId: 'individual',
@@ -87,6 +98,9 @@ export default function PremiumIndividual() {
 
       const payload = (await response.json()) as CheckoutResponse;
       if (!response.ok || !payload.ok) {
+        if (response.status === 401) {
+          throw new Error('Sua sessão online precisa ser confirmada. Saia, entre novamente e tente assinar o Premium.');
+        }
         throw new Error(payload.message || payload.error || 'Não foi possível gerar a cobrança.');
       }
 

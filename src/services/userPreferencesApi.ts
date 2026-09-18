@@ -1,4 +1,5 @@
 import type { Asset, WatchlistItem } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com').replace(/\/$/, '');
 
@@ -21,11 +22,37 @@ export interface RemoteAlert {
   triggeredAt: string | null;
 }
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
+let ownerApiPromise: Promise<boolean> | null = null;
+
+async function authenticatedHeaders() {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!supabase) return headers;
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function usesAuthenticatedOwnerApi() {
+  if (!ownerApiPromise) {
+    ownerApiPromise = fetch(`${API_URL}/api/watchlist/_health/storage`)
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const payload = await response.json().catch(() => ({}));
+        return payload?.access === 'authenticated-owner-only';
+      })
+      .catch(() => false);
+  }
+  return ownerApiPromise;
+}
+
+async function api<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
+  const baseHeaders = authenticated ? await authenticatedHeaders() : { 'Content-Type': 'application/json' };
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...baseHeaders,
       ...(init?.headers || {}),
     },
   });
@@ -61,31 +88,38 @@ function normalizeWatchlist(items: RemoteWatchlistItem[]): WatchlistItem[] {
 
 export async function fetchWatchlist(userId: string): Promise<WatchlistItem[]> {
   if (!userId) return [];
-  const items = await api<RemoteWatchlistItem[]>(`/api/watchlist/${userPathId(userId)}`);
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  const path = ownerApi ? '/api/watchlist/me' : `/api/watchlist/${userPathId(userId)}`;
+  const items = await api<RemoteWatchlistItem[]>(path, undefined, ownerApi);
   return normalizeWatchlist(items);
 }
 
 export async function addWatchlistAsset(userId: string, asset: WatchlistAssetInput) {
   if (!userId) return null;
-  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(`/api/watchlist/${userPathId(userId)}`, {
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  const path = ownerApi ? '/api/watchlist/me' : `/api/watchlist/${userPathId(userId)}`;
+  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(path, {
     method: 'POST',
     body: JSON.stringify({ ticker: asset.ticker, name: asset.name, type: asset.type }),
-  });
+  }, ownerApi);
   return { ...result, watchlist: normalizeWatchlist(result.watchlist || []) };
 }
 
 export async function removeWatchlistAsset(userId: string, ticker: string) {
   if (!userId) return null;
-  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(
-    `/api/watchlist/${userPathId(userId)}/${encodeURIComponent(ticker)}`,
-    { method: 'DELETE' },
-  );
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  const path = ownerApi
+    ? `/api/watchlist/me/${encodeURIComponent(ticker)}`
+    : `/api/watchlist/${userPathId(userId)}/${encodeURIComponent(ticker)}`;
+  const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(path, { method: 'DELETE' }, ownerApi);
   return { ...result, watchlist: normalizeWatchlist(result.watchlist || []) };
 }
 
 export async function fetchAlerts(userId: string): Promise<RemoteAlert[]> {
   if (!userId) return [];
-  return api<RemoteAlert[]>(`/api/alerts/${userPathId(userId)}`);
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  const path = ownerApi ? '/api/alerts/me' : `/api/alerts/${userPathId(userId)}`;
+  return api<RemoteAlert[]>(path, undefined, ownerApi);
 }
 
 export async function createAlert(input: {
@@ -95,19 +129,26 @@ export async function createAlert(input: {
   value: number;
   enabled?: boolean;
 }) {
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  const body = ownerApi
+    ? { ticker: input.ticker, type: input.type, value: input.value, enabled: input.enabled }
+    : { ...input, userId: userStorageKey(input.userId) };
+
   return api<{ success: boolean; alert: RemoteAlert }>('/api/alerts', {
     method: 'POST',
-    body: JSON.stringify({ ...input, userId: userStorageKey(input.userId) }),
-  });
+    body: JSON.stringify(body),
+  }, ownerApi);
 }
 
 export async function updateAlert(alertId: string, input: { enabled?: boolean; value?: number }) {
+  const ownerApi = await usesAuthenticatedOwnerApi();
   return api<{ success: boolean; alert: RemoteAlert }>(`/api/alerts/${encodeURIComponent(alertId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
-  });
+  }, ownerApi);
 }
 
 export async function deleteAlert(alertId: string) {
-  return api<{ success: boolean }>(`/api/alerts/${encodeURIComponent(alertId)}`, { method: 'DELETE' });
+  const ownerApi = await usesAuthenticatedOwnerApi();
+  return api<{ success: boolean }>(`/api/alerts/${encodeURIComponent(alertId)}`, { method: 'DELETE' }, ownerApi);
 }
