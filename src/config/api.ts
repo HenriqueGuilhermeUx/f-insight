@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
   billing: {
     plans: `${API_URL}/api/billing/plans`,
     checkout: `${API_URL}/api/billing/checkout`,
+    entitlement: `${API_URL}/api/billing/entitlement`,
     invoice: (correlationId: string) => `${API_URL}/api/billing/invoice/${correlationId}`
   },
   macro: {

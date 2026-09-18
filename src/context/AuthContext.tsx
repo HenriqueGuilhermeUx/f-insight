@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import API_ENDPOINTS from '@/config/api';
 
 export type AuthRole = 'admin' | 'advisor' | 'client';
 export type AuthPlan = 'free' | 'premium';
@@ -20,7 +21,7 @@ interface StoredAccount {
   plan: AuthPlan;
   passwordHash?: string;
   passwordSalt?: string;
-  password?: string; // legado: migrado automaticamente após login válido
+  password?: string;
 }
 
 interface AuthContextValue {
@@ -30,6 +31,7 @@ interface AuthContextValue {
   signInWithPassword: (email: string, password: string) => Promise<AuthUser>;
   signUpWithPassword: (input: { email: string; password: string; fullName: string; role: AuthRole }) => Promise<AuthUser>;
   enterDemo: (role: AuthRole) => AuthUser;
+  refreshEntitlement: () => Promise<AuthUser | null>;
   logout: () => Promise<void>;
   routeForRole: (role?: AuthRole) => string;
 }
@@ -225,8 +227,6 @@ function readLocalUser(): AuthUser | null {
       return null;
     }
 
-    // A sessão persistida no browser nunca concede privilégio institucional por si só.
-    // Uma sessão Supabase válida pode elevar o papel após o boot.
     return {
       ...parsed,
       role: 'client',
@@ -238,6 +238,34 @@ function readLocalUser(): AuthUser | null {
   }
 }
 
+async function applyBillingEntitlement(user: AuthUser): Promise<AuthUser> {
+  if (user.isDemo || normalizeEmail(user.email) === REVIEWER_EMAIL) return user;
+
+  try {
+    const response = await fetch(API_ENDPOINTS.billing.entitlement, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: user.id }),
+    });
+
+    if (!response.ok) return user;
+
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      entitlement?: { plan?: AuthPlan; active?: boolean };
+    };
+
+    if (!payload.ok || !payload.entitlement) return user;
+
+    return {
+      ...user,
+      plan: payload.entitlement.active && payload.entitlement.plan === 'premium' ? 'premium' : 'free',
+    };
+  } catch {
+    return user;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -245,9 +273,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    async function commitUser(candidate: AuthUser) {
+      const entitled = await applyBillingEntitlement(candidate);
+      if (!mounted) return entitled;
+      setUser(entitled);
+      saveLocalUser(entitled);
+      return entitled;
+    }
+
     async function boot() {
       const localUser = readLocalUser();
-      if (localUser && mounted) setUser(localUser);
+      if (localUser && mounted) {
+        await commitUser(localUser);
+      }
 
       if (isSupabaseConfigured && supabase) {
         try {
@@ -262,11 +300,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               isDemo: false,
               plan: localUser?.plan || 'free',
             };
-            setUser(mappedUser);
-            saveLocalUser(mappedUser);
+            await commitUser(mappedUser);
           }
         } catch {
-          // Mantém apenas o acesso local de cliente quando o login online falhar.
+          // Mantém o acesso local quando a autenticação online estiver indisponível.
         }
       }
 
@@ -285,8 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDemo: false,
         plan: 'free',
       };
-      setUser(mappedUser);
-      saveLocalUser(mappedUser);
+      void commitUser(mappedUser);
     });
 
     return () => {
@@ -307,11 +343,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveLocalUser(nextUser);
         return nextUser;
       },
+      async refreshEntitlement() {
+        if (!user) return null;
+        const nextUser = await applyBillingEntitlement(user);
+        setUser(nextUser);
+        saveLocalUser(nextUser);
+        return nextUser;
+      },
       async signInWithPassword(email: string, password: string) {
         const normalizedEmail = normalizeEmail(email);
 
-        // Acesso de revisão da Play Console: não existe uma senha secreta hardcoded no bundle.
-        // Qualquer senha com 6+ caracteres funciona apenas para esta conta de revisão e apenas como cliente Premium.
         if (normalizedEmail === REVIEWER_EMAIL && password.length >= 6) {
           const nextUser = reviewerUser();
           setUser(nextUser);
@@ -321,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const localAccount = await findAccount(normalizedEmail, password);
         if (localAccount) {
-          const nextUser = userFromAccount(localAccount);
+          const nextUser = await applyBillingEntitlement(userFromAccount(localAccount));
           setUser(nextUser);
           saveLocalUser(nextUser);
           return nextUser;
@@ -340,9 +381,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               isDemo: false,
               plan: 'free',
             };
-            setUser(mappedUser);
-            saveLocalUser(mappedUser);
-            return mappedUser;
+            const nextUser = await applyBillingEntitlement(mappedUser);
+            setUser(nextUser);
+            saveLocalUser(nextUser);
+            return nextUser;
           } catch {
             // Cai para a mensagem amigável abaixo.
           }
@@ -365,7 +407,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           plan: 'free',
         };
 
-        // O fallback local é deliberadamente restrito a cliente comum.
         if (input.role === 'client') {
           saveAccount(account);
         }
