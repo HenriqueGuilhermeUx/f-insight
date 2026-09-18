@@ -1,575 +1,315 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Search,
-  ArrowUpRight,
   ArrowDownRight,
-  Star,
-  SlidersHorizontal,
-  X,
+  ArrowUpRight,
   Grid,
   List,
-  Database,
+  Loader2,
   RefreshCcw,
+  Search,
+  Star,
   Wifi,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { formatPrice, formatPercent, formatLargeNumber, getChangeColor, getAssetTypeLabel } from '@/lib/utils';
-import { fetchAssets, mockData } from '@/services/marketData';
-import { useAppStore } from '@/hooks/useStore';
+import { cn, formatLargeNumber, formatPercent, formatPrice, getAssetTypeLabel } from '@/lib/utils';
 import { Layout } from '@/components/layout/Layout';
-import { Asset } from '@/types';
-import API_ENDPOINTS from '@/config/api';
+import { useAppStore } from '@/hooks/useStore';
+import {
+  fetchLiveAssetsByMarket,
+  type LiveAssetSnapshot,
+  type MarketGroup,
+} from '@/services/liveMarket';
+import type { Asset } from '@/types';
 
-type MarketFilter = 'br' | 'us' | 'crypto';
-type TypeFilter = 'all' | 'stock' | 'etf' | 'fii' | 'bdr' | 'crypto';
-type SortBy = 'ticker' | 'change' | 'volume' | 'price' | 'marketCap' | 'pe' | 'dy';
+type TypeFilter = 'all' | Asset['type'];
+type SortBy = 'ticker' | 'change' | 'volume' | 'price';
 type ViewMode = 'grid' | 'list';
-type DataSource = 'live' | 'demo' | 'mixed';
 
-interface LiveIndicator {
-  symbol: string;
-  provider: string;
-  providerSymbol?: string;
-  lastPrice: number;
-  change: number;
-  changePercent: number;
-  avgVolume: number;
-  fetchedAt: string;
-}
-
-const BR_SYMBOLS = ['PETR4.SA', 'VALE3.SA', 'ITUB4.SA', 'BBDC4.SA', 'WEGE3.SA'];
-
-const BR_ASSET_NAMES: Record<string, { name: string; sector?: string }> = {
-  PETR4: { name: 'Petrobras PN', sector: 'Energia' },
-  VALE3: { name: 'Vale ON', sector: 'Mineração' },
-  ITUB4: { name: 'Itaú Unibanco PN', sector: 'Financeiro' },
-  BBDC4: { name: 'Bradesco PN', sector: 'Financeiro' },
-  WEGE3: { name: 'WEG ON', sector: 'Industrial' },
-};
-
-function cleanTicker(symbol: string) {
-  return symbol.replace(/\.SA$/i, '').toUpperCase();
-}
-
-function buildLiveAsset(indicator: LiveIndicator): Asset {
-  const ticker = cleanTicker(indicator.symbol);
-  const meta = BR_ASSET_NAMES[ticker] || { name: ticker };
-
-  return {
-    ticker,
-    name: meta.name,
-    price: indicator.lastPrice,
-    change: indicator.change,
-    changePercent: indicator.changePercent,
-    volume: indicator.avgVolume,
-    type: 'stock',
-    currency: 'BRL',
-    sector: meta.sector,
-    country: 'BR',
-  };
-}
-
-async function fetchLiveBrazilAssets() {
-  const url = `${API_ENDPOINTS.live.indicators}?symbols=${BR_SYMBOLS.join(',')}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Live indicators unavailable');
-
-  const payload = await response.json();
-  const rows = Array.isArray(payload.data) ? payload.data as LiveIndicator[] : [];
-  const validRows = rows.filter((row) => row.lastPrice && Number.isFinite(row.lastPrice));
-
-  return {
-    assets: validRows.map(buildLiveAsset),
-    source: String(payload.source || 'supabase-cache'),
-    updatedAt: validRows[0]?.fetchedAt || payload.updatedAt || null,
-    providers: [...new Set(validRows.map((row) => row.provider))],
-  };
-}
-
-function AssetRow({ asset, onAddToWatchlist }: { asset: Asset; onAddToWatchlist: (asset: Asset) => void }) {
-  const isPositive = asset.changePercent >= 0;
-  const { isInWatchlist, removeFromWatchlist } = useAppStore();
+function AssetRow({ snapshot }: { snapshot: LiveAssetSnapshot }) {
+  const asset = snapshot.asset;
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useAppStore();
   const inWatchlist = isInWatchlist(asset.ticker);
+  const up = asset.changePercent >= 0;
 
   return (
-    <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-      <td className="py-3 px-4">
-        <Link to={`/ativo/${asset.ticker}`} className="flex items-center gap-3 group">
-          <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center">
-            <span className="text-xs font-bold text-cyan-400">{asset.ticker.slice(0, 2)}</span>
+    <tr className="border-b border-slate-800/50 transition hover:bg-slate-800/30">
+      <td className="px-4 py-3">
+        <Link to={`/ativo/${asset.ticker}`} className="group flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/50">
+            <span className="text-xs font-bold text-cyan-400">{asset.ticker.slice(0, 3)}</span>
           </div>
           <div>
-            <p className="font-mono font-bold text-cyan-400 group-hover:text-cyan-300">
-              {asset.ticker}
-            </p>
-            <p className="text-xs text-slate-400 truncate max-w-[150px]">{asset.name}</p>
+            <p className="font-mono font-bold text-cyan-400 group-hover:text-cyan-300">{asset.ticker}</p>
+            <p className="max-w-[180px] truncate text-xs text-slate-400">{asset.name}</p>
           </div>
         </Link>
       </td>
-      <td className="py-3 px-4">
-        <span className={cn(
-          'text-xs px-2 py-0.5 rounded',
-          asset.type === 'stock' ? 'bg-blue-500/20 text-blue-400' :
-          asset.type === 'etf' ? 'bg-purple-500/20 text-purple-400' :
-          asset.type === 'fii' ? 'bg-amber-500/20 text-amber-400' :
-          asset.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
-          'bg-slate-500/20 text-slate-400'
-        )}>
-          {getAssetTypeLabel(asset.type)}
-        </span>
+      <td className="px-4 py-3">
+        <span className="rounded bg-slate-700/60 px-2 py-1 text-xs text-slate-300">{getAssetTypeLabel(asset.type)}</span>
       </td>
-      <td className="py-3 px-4 text-right">
-        <p className="font-mono font-bold text-white">{formatPrice(asset.price, asset.currency)}</p>
-      </td>
-      <td className="py-3 px-4 text-right">
-        <span className={cn('font-mono text-sm', getChangeColor(asset.change))}>
-          {asset.change >= 0 ? '+' : ''}{asset.change.toFixed(2)}
-        </span>
-      </td>
-      <td className="py-3 px-4 text-right">
-        <span className={cn(
-          'font-mono text-sm px-2 py-0.5 rounded',
-          isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-        )}>
+      <td className="px-4 py-3 text-right font-mono font-bold text-white">{formatPrice(asset.price, asset.currency)}</td>
+      <td className="px-4 py-3 text-right">
+        <span className={cn('inline-flex items-center gap-1 font-mono text-sm', up ? 'text-emerald-400' : 'text-red-400')}>
+          {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
           {formatPercent(asset.changePercent)}
         </span>
       </td>
-      <td className="py-3 px-4 text-right">
-        <span className="text-slate-300 font-mono text-sm">
-          {formatLargeNumber(asset.volume)}
-        </span>
-      </td>
-      <td className="py-3 px-4">
+      <td className="px-4 py-3 text-right text-sm text-slate-300">{formatLargeNumber(asset.volume)}</td>
+      <td className="px-4 py-3 text-right text-xs text-slate-500">{snapshot.provider || '—'}</td>
+      <td className="px-4 py-3 text-right">
         <button
-          onClick={() => inWatchlist ? removeFromWatchlist(asset.ticker) : onAddToWatchlist(asset)}
-          className={cn(
-            'p-2 rounded-lg transition-all',
-            inWatchlist
-              ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-              : 'bg-slate-800/50 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10'
-          )}
+          onClick={() => inWatchlist ? removeFromWatchlist(asset.ticker) : addToWatchlist(asset)}
+          aria-label={inWatchlist ? `Remover ${asset.ticker} da watchlist` : `Adicionar ${asset.ticker} à watchlist`}
+          className={cn('rounded-lg p-2 transition', inWatchlist ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:bg-amber-500/10 hover:text-amber-400')}
         >
-          <Star className={cn('w-4 h-4', inWatchlist && 'fill-current')} />
+          <Star className={cn('h-4 w-4', inWatchlist && 'fill-current')} />
         </button>
       </td>
     </tr>
   );
 }
 
-function AssetCard({ asset, onAddToWatchlist }: { asset: Asset; onAddToWatchlist: (asset: Asset) => void }) {
-  const isPositive = asset.changePercent >= 0;
-  const { isInWatchlist, removeFromWatchlist } = useAppStore();
+function AssetCard({ snapshot }: { snapshot: LiveAssetSnapshot }) {
+  const asset = snapshot.asset;
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useAppStore();
   const inWatchlist = isInWatchlist(asset.ticker);
+  const up = asset.changePercent >= 0;
 
   return (
-    <Link
-      to={`/ativo/${asset.ticker}`}
-      className={cn(
-        'bg-slate-800/40 hover:bg-slate-800/70 rounded-xl p-4 border border-slate-700/40 transition-all group',
-        'hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5'
-      )}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-slate-700/50 rounded-lg flex items-center justify-center">
-            <span className="text-sm font-bold text-cyan-400">{asset.ticker.slice(0, 3)}</span>
-          </div>
-          <div>
-            <span className="font-mono font-bold text-cyan-400 group-hover:text-cyan-300">
-              {asset.ticker}
-            </span>
-            <p className="text-xs text-slate-400 truncate max-w-[100px]">{asset.name}</p>
-          </div>
+    <Link to={`/ativo/${asset.ticker}`} className="group rounded-2xl border border-slate-700/40 bg-slate-800/40 p-4 transition hover:border-primary/30 hover:bg-slate-800/70">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-lg font-black text-cyan-400 group-hover:text-cyan-300">{asset.ticker}</p>
+          <p className="text-xs text-slate-400">{asset.name}</p>
         </div>
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            inWatchlist ? removeFromWatchlist(asset.ticker) : onAddToWatchlist(asset);
+          onClick={(event) => {
+            event.preventDefault();
+            inWatchlist ? removeFromWatchlist(asset.ticker) : addToWatchlist(asset);
           }}
-          className={cn(
-            'p-1.5 rounded-lg transition-all',
-            inWatchlist
-              ? 'bg-amber-500/20 text-amber-400'
-              : 'text-slate-500 hover:text-amber-400'
-          )}
+          className={cn('rounded-lg p-2 transition', inWatchlist ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-amber-400')}
         >
-          <Star className={cn('w-4 h-4', inWatchlist && 'fill-current')} />
+          <Star className={cn('h-4 w-4', inWatchlist && 'fill-current')} />
         </button>
       </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-xl font-bold font-mono text-white">
-            {formatPrice(asset.price, asset.currency)}
-          </p>
-          <p className={cn('text-sm font-mono mt-1', getChangeColor(asset.change))}>
-            {isPositive ? <ArrowUpRight className="w-3 h-3 inline" /> : <ArrowDownRight className="w-3 h-3 inline" />}
-            {' '}{asset.change.toFixed(2)}
-          </p>
-        </div>
-        <span className={cn(
-          'text-sm font-mono px-2 py-1 rounded-lg',
-          isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-        )}>
+
+      <p className="font-mono text-2xl font-black text-white">{formatPrice(asset.price, asset.currency)}</p>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className={cn('inline-flex items-center gap-1 font-mono text-sm', up ? 'text-emerald-400' : 'text-red-400')}>
+          {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
           {formatPercent(asset.changePercent)}
         </span>
+        <span className="rounded bg-slate-700/60 px-2 py-1 text-xs text-slate-300">{getAssetTypeLabel(asset.type)}</span>
       </div>
-      <div className="mt-3 pt-3 border-t border-slate-700/30 flex items-center justify-between">
-        <span className="text-xs text-slate-500">Vol: {formatLargeNumber(asset.volume)}</span>
-        <span className={cn(
-          'text-xs px-2 py-0.5 rounded',
-          asset.type === 'stock' ? 'bg-blue-500/20 text-blue-400' :
-          asset.type === 'etf' ? 'bg-purple-500/20 text-purple-400' :
-          asset.type === 'fii' ? 'bg-amber-500/20 text-amber-400' :
-          asset.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
-          'bg-slate-500/20 text-slate-400'
-        )}>
-          {getAssetTypeLabel(asset.type)}
-        </span>
+      <div className="mt-4 flex items-center justify-between border-t border-slate-700/40 pt-3 text-xs text-slate-500">
+        <span>Vol. {formatLargeNumber(asset.volume)}</span>
+        <span>{snapshot.provider || 'API F-Insight'}</span>
       </div>
     </Link>
   );
 }
 
 export default function Radar() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [marketFilter, setMarketFilter] = useState<MarketFilter>('br');
+  const [market, setMarket] = useState<MarketGroup>('br');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('ticker');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [dataSource, setDataSource] = useState<DataSource>('demo');
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const [liveProviders, setLiveProviders] = useState<string[]>([]);
+  const [snapshots, setSnapshots] = useState<LiveAssetSnapshot[]>([]);
+  const [source, setSource] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const { addToWatchlist } = useAppStore();
+  async function loadMarket() {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await fetchLiveAssetsByMarket(market);
+      setSnapshots(result.snapshots);
+      setSource(result.source);
+      setUpdatedAt(result.updatedAt);
+      if (!result.snapshots.some((item) => item.dataAvailable)) {
+        setError('Nenhuma cotação ficou disponível para este mercado agora.');
+      }
+    } catch {
+      setSnapshots([]);
+      setSource('indisponível');
+      setUpdatedAt(null);
+      setError('A API de mercado está temporariamente indisponível. Nenhum preço de demonstração será exibido como atual.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const loadAssets = async () => {
-      setLoading(true);
-      try {
-        if (marketFilter === 'br') {
-          const live = await fetchLiveBrazilAssets();
-          const base = await fetchAssets(marketFilter);
-          const liveTickers = new Set(live.assets.map((asset) => asset.ticker));
-          const fallbackAssets = base.filter((asset) => !liveTickers.has(asset.ticker));
+    void loadMarket();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [market]);
 
-          setAssets(live.assets.length > 0 ? [...live.assets, ...fallbackAssets] : base);
-          setDataSource(live.assets.length > 0 ? 'live' : 'demo');
-          setLastUpdatedAt(live.updatedAt);
-          setLiveProviders(live.providers);
-          return;
-        }
+  const available = useMemo(() => snapshots.filter((item) => item.dataAvailable), [snapshots]);
+  const unavailableCount = snapshots.length - available.length;
 
-        const data = await fetchAssets(marketFilter);
-        setAssets(data);
-        setDataSource(marketFilter === 'crypto' ? 'live' : 'mixed');
-        setLastUpdatedAt(new Date().toISOString());
-        setLiveProviders(marketFilter === 'crypto' ? ['coingecko'] : []);
-      } catch (e) {
-        const allAssets = marketFilter === 'br'
-          ? [...mockData.stocks.br, ...mockData.etfs, ...mockData.fiis]
-          : marketFilter === 'us'
-          ? mockData.stocks.us
-          : mockData.crypto;
-        setAssets(allAssets);
-        setDataSource('demo');
-        setLastUpdatedAt(null);
-        setLiveProviders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAssets();
-  }, [marketFilter]);
-
-  const filteredAssets = useMemo(() => {
-    let result = [...assets];
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(a =>
-        a.ticker.toLowerCase().includes(q) ||
-        a.name.toLowerCase().includes(q)
-      );
-    }
-
-    if (typeFilter !== 'all') {
-      result = result.filter(a => a.type === typeFilter);
-    }
-
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'ticker':
-          comparison = a.ticker.localeCompare(b.ticker);
-          break;
-        case 'change':
-          comparison = b.changePercent - a.changePercent;
-          break;
-        case 'volume':
-          comparison = b.volume - a.volume;
-          break;
-        case 'price':
-          comparison = b.price - a.price;
-          break;
-        case 'marketCap':
-          comparison = (b.marketCap || 0) - (a.marketCap || 0);
-          break;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
+  const filtered = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const rows = available.filter((snapshot) => {
+      const asset = snapshot.asset;
+      if (typeFilter !== 'all' && asset.type !== typeFilter) return false;
+      if (!query) return true;
+      return asset.ticker.toLowerCase().includes(query) || asset.name.toLowerCase().includes(query);
     });
 
-    return result;
-  }, [assets, searchQuery, typeFilter, sortBy, sortOrder]);
+    return [...rows].sort((a, b) => {
+      const left = a.asset;
+      const right = b.asset;
+      if (sortBy === 'change') return right.changePercent - left.changePercent;
+      if (sortBy === 'volume') return right.volume - left.volume;
+      if (sortBy === 'price') return right.price - left.price;
+      return left.ticker.localeCompare(right.ticker);
+    });
+  }, [available, searchQuery, typeFilter, sortBy]);
 
-  const handleAddToWatchlist = (asset: Asset) => {
-    addToWatchlist(asset);
+  const marketLabels: Record<MarketGroup, string> = {
+    br: 'Brasil',
+    us: 'Estados Unidos',
+    crypto: 'Cripto',
   };
-
-  const sourceLabel = dataSource === 'live'
-    ? 'Dados ao vivo'
-    : dataSource === 'mixed'
-    ? 'Dados mistos'
-    : 'Modo demo';
-
-  const sourceIcon = dataSource === 'live' ? Wifi : Database;
-  const SourceIcon = sourceIcon;
 
   return (
     <Layout>
-      <div className="mb-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-slate-900/80 to-slate-950 p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <section className="mb-6 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-slate-900/80 to-slate-950 p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl lg:text-4xl font-black text-white mb-2">Radar de Ativos</h1>
-            <p className="text-slate-400">Busque e filtre ativos por mercado, tipo e critérios com cache vivo no Supabase.</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className={cn(
-              'rounded-2xl border px-4 py-3 min-w-[220px]',
-              dataSource === 'live' ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-amber-500/20 bg-amber-500/10'
-            )}>
-              <div className="flex items-center gap-2 mb-1">
-                <SourceIcon className={cn('w-4 h-4', dataSource === 'live' ? 'text-emerald-400' : 'text-amber-400')} />
-                <span className={cn('text-xs font-bold', dataSource === 'live' ? 'text-emerald-300' : 'text-amber-300')}>{sourceLabel}</span>
-              </div>
-              <p className="text-xs text-slate-400">
-                {lastUpdatedAt ? `Atualizado em ${new Date(lastUpdatedAt).toLocaleString('pt-BR')}` : 'Usando fallback local'}
-              </p>
-              {liveProviders.length > 0 && <p className="text-[11px] text-slate-500 mt-1">Fonte: {liveProviders.join(', ')}</p>}
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+              <Wifi className="h-3.5 w-3.5" />
+              Dados reais · sem preço demo
             </div>
-            <Link
-              to="/admin/status-dados"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-800/60 px-4 py-3 text-sm font-bold text-slate-200 hover:border-primary/40 hover:text-white transition-colors"
-            >
-              <RefreshCcw className="w-4 h-4" />
-              Status dos dados
-            </Link>
+            <h1 className="text-3xl font-black text-white lg:text-4xl">Radar de Ativos</h1>
+            <p className="mt-2 max-w-3xl text-slate-400">
+              Amostra curada de ativos com cotações vindas do backend F-Insight e persistidas no data hub.
+            </p>
           </div>
+          <button
+            onClick={() => void loadMarket()}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-900/70 px-4 py-3 text-sm font-bold text-slate-200 transition hover:border-primary/40 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+            Atualizar
+          </button>
         </div>
-      </div>
+      </section>
 
-      <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por ticker ou nome..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
-          />
-          {searchQuery && (
+      <div className="mb-5 grid grid-cols-1 gap-3 lg:grid-cols-[auto_1fr_auto_auto]">
+        <div className="flex gap-2 rounded-xl border border-slate-700/40 bg-slate-900/60 p-1">
+          {(['br', 'us', 'crypto'] as MarketGroup[]).map((value) => (
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              key={value}
+              onClick={() => setMarket(value)}
+              className={cn('rounded-lg px-4 py-2 text-sm font-bold transition', market === value ? 'bg-primary text-white' : 'text-slate-400 hover:text-white')}
             >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          {(['br', 'us', 'crypto'] as const).map((market) => (
-            <button
-              key={market}
-              onClick={() => setMarketFilter(market)}
-              className={cn(
-                'px-4 py-2 rounded-lg font-medium text-sm transition-all',
-                marketFilter === market
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800'
-              )}
-            >
-              {market === 'br' ? '🇧🇷 Brasil' : market === 'us' ? '🇺🇸 EUA' : '₿ Cripto'}
+              {marketLabels[value]}
             </button>
           ))}
         </div>
 
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all',
-            showFilters
-              ? 'bg-slate-700 text-white'
-              : 'bg-slate-800/50 text-slate-400 hover:text-white'
-          )}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Filtrar por ticker ou nome..."
+            className="w-full rounded-xl border border-slate-700/40 bg-slate-900/60 py-2.5 pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-primary/40"
+          />
+        </div>
+
+        <select
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as SortBy)}
+          className="rounded-xl border border-slate-700/40 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 outline-none"
         >
-          <SlidersHorizontal className="w-4 h-4" />
-          Filtros
-        </button>
+          <option value="ticker">Ticker</option>
+          <option value="change">Variação</option>
+          <option value="volume">Volume</option>
+          <option value="price">Preço</option>
+        </select>
 
-        <div className="flex gap-1 bg-slate-800/50 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={cn(
-              'p-2 rounded transition-colors',
-              viewMode === 'grid' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-            )}
-          >
-            <Grid className="w-4 h-4" />
+        <div className="flex rounded-xl border border-slate-700/40 bg-slate-900/60 p-1">
+          <button onClick={() => setViewMode('grid')} className={cn('rounded-lg p-2', viewMode === 'grid' ? 'bg-slate-700 text-white' : 'text-slate-500')} aria-label="Grade">
+            <Grid className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={cn(
-              'p-2 rounded transition-colors',
-              viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-            )}
-          >
-            <List className="w-4 h-4" />
+          <button onClick={() => setViewMode('list')} className={cn('rounded-lg p-2', viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-500')} aria-label="Lista">
+            <List className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {showFilters && (
-        <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-slate-700/40 animate-fade-in">
-          <div className="flex flex-wrap gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">Tipo</label>
-              <div className="flex flex-wrap gap-2">
-                {(['all', 'stock', 'etf', 'fii', 'crypto'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(type)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                      typeFilter === type
-                        ? 'bg-primary/20 text-primary border border-primary/30'
-                        : 'bg-slate-700/50 text-slate-400 hover:text-white'
-                    )}
-                  >
-                    {type === 'all' ? 'Todos' : getAssetTypeLabel(type)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">Ordenar por</label>
-              <div className="flex gap-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  className="bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary/50"
-                >
-                  <option value="ticker">Ticker</option>
-                  <option value="change">Variação</option>
-                  <option value="volume">Volume</option>
-                  <option value="price">Preço</option>
-                </select>
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="p-2 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors"
-                >
-                  {sortOrder === 'asc' ? '↑' : '↓'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-400">
-          {loading ? 'Carregando...' : `${filteredAssets.length} ativos encontrados`}
-        </p>
-        {searchQuery && (
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        {(['all', 'stock', 'etf', 'fii', 'crypto'] as TypeFilter[]).map((value) => (
           <button
-            onClick={() => setSearchQuery('')}
-            className="text-sm text-cyan-400 hover:text-cyan-300"
+            key={value}
+            onClick={() => setTypeFilter(value)}
+            className={cn('rounded-full border px-3 py-1.5 text-xs font-bold transition', typeFilter === value ? 'border-primary/40 bg-primary/10 text-primary' : 'border-slate-700/40 text-slate-500 hover:text-slate-300')}
           >
-            Limpar busca
+            {value === 'all' ? 'Todos' : getAssetTypeLabel(value)}
           </button>
-        )}
+        ))}
       </div>
 
-      {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {loading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-slate-800/40 rounded-xl p-4 h-48 skeleton" />
-            ))
-          ) : filteredAssets.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <Search className="w-12 h-12 mx-auto text-slate-600 mb-4" />
-              <p className="text-slate-400">Nenhum ativo encontrado</p>
-              <p className="text-sm text-slate-500 mt-2">Tente ajustar os filtros ou buscar outro termo</p>
-            </div>
-          ) : (
-            filteredAssets.map((asset) => (
-              <AssetCard key={asset.ticker} asset={asset} onAddToWatchlist={handleAddToWatchlist} />
-            ))
-          )}
-        </div>
-      )}
+      <div className="mb-5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-700/40 bg-slate-900/50 px-3 py-1.5">
+          <Wifi className="h-3.5 w-3.5" />
+          Fonte: {source || 'API F-Insight'}
+        </span>
+        <span>{available.length} cotações disponíveis</span>
+        {unavailableCount > 0 && <span>{unavailableCount} indisponíveis</span>}
+        {updatedAt && <span>Atualizado em {new Date(updatedAt).toLocaleString('pt-BR')}</span>}
+      </div>
 
-      {viewMode === 'list' && (
-        <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden">
+      {loading ? (
+        <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-16 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-3 text-slate-400">Consultando mercado...</p>
+        </div>
+      ) : error && available.length === 0 ? (
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-10 text-center">
+          <p className="font-bold text-amber-100">Dados indisponíveis no momento</p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-amber-100/70">{error}</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-10 text-center text-slate-400">
+          Nenhum ativo disponível para os filtros atuais.
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filtered.map((snapshot) => <AssetCard key={snapshot.asset.ticker} snapshot={snapshot} />)}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-800/40">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-700/50 text-left text-xs text-slate-400 uppercase tracking-wider">
-                  <th className="py-3 px-4 font-medium">Ativo</th>
-                  <th className="py-3 px-4 font-medium">Tipo</th>
-                  <th className="py-3 px-4 font-medium text-right">Preço</th>
-                  <th className="py-3 px-4 font-medium text-right">Variação</th>
-                  <th className="py-3 px-4 font-medium text-right">%</th>
-                  <th className="py-3 px-4 font-medium text-right">Volume</th>
-                  <th className="py-3 px-4 font-medium w-12"></th>
+                <tr className="border-b border-slate-700/50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">Ativo</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3 text-right">Preço</th>
+                  <th className="px-4 py-3 text-right">Variação</th>
+                  <th className="px-4 py-3 text-right">Volume</th>
+                  <th className="px-4 py-3 text-right">Fonte</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-slate-800/50">
-                      <td className="py-3 px-4"><div className="h-8 w-32 skeleton" /></td>
-                      <td className="py-3 px-4"><div className="h-5 w-16 skeleton" /></td>
-                      <td className="py-3 px-4"><div className="h-5 w-20 skeleton ml-auto" /></td>
-                      <td className="py-3 px-4"><div className="h-5 w-16 skeleton ml-auto" /></td>
-                      <td className="py-3 px-4"><div className="h-5 w-16 skeleton ml-auto" /></td>
-                      <td className="py-3 px-4"><div className="h-5 w-16 skeleton ml-auto" /></td>
-                      <td className="py-3 px-4"><div className="h-8 w-8 skeleton" /></td>
-                    </tr>
-                  ))
-                ) : filteredAssets.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
-                      Nenhum ativo encontrado
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAssets.map((asset) => (
-                    <AssetRow key={asset.ticker} asset={asset} onAddToWatchlist={handleAddToWatchlist} />
-                  ))
-                )}
+                {filtered.map((snapshot) => <AssetRow key={snapshot.asset.ticker} snapshot={snapshot} />)}
               </tbody>
             </table>
           </div>
         </div>
       )}
+
+      <div className="mt-6 rounded-xl border border-slate-700/40 bg-slate-800/30 p-4 text-xs leading-relaxed text-slate-400">
+        O Radar organiza uma amostra de mercado para estudo. Cotações podem ter atraso e disponibilidade variável. Nenhum destaque visual representa recomendação de compra ou venda.
+      </div>
     </Layout>
   );
 }
