@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { WatchlistItem, Asset } from '@/types';
 import { addWatchlistAsset, fetchWatchlist, removeWatchlistAsset } from '@/services/userPreferencesApi';
 
+type WatchlistAssetInput = Pick<Asset, 'ticker' | 'name' | 'type'>;
+
 interface AppStore {
   theme: 'dark' | 'light';
   setTheme: (theme: 'dark' | 'light') => void;
@@ -19,18 +21,12 @@ interface AppStore {
   setSearchQuery: (query: string) => void;
 
   watchlist: WatchlistItem[];
-  addToWatchlist: (asset: Asset) => void;
+  addToWatchlist: (asset: WatchlistAssetInput) => void;
   removeFromWatchlist: (ticker: string) => void;
   isInWatchlist: (ticker: string) => boolean;
   setWatchlist: (items: WatchlistItem[]) => void;
   hydrateRemoteWatchlist: (userId?: string) => Promise<void>;
 }
-
-const demoWatchlist: WatchlistItem[] = [
-  { ticker: 'PETR4', name: 'Petrobras PN', addedAt: Date.now() - 86400000 },
-  { ticker: 'BTC', name: 'Bitcoin', addedAt: Date.now() - 172800000 },
-  { ticker: 'AAPL', name: 'Apple Inc.', addedAt: Date.now() - 259200000 },
-];
 
 function storedUserId() {
   if (typeof window === 'undefined') return '';
@@ -61,7 +57,7 @@ export const useAppStore = create<AppStore>()(
       searchQuery: '',
       setSearchQuery: (query) => set({ searchQuery: query }),
 
-      watchlist: demoWatchlist,
+      watchlist: [],
       setWatchlist: (items) => set({ watchlist: items }),
       hydrateRemoteWatchlist: async (explicitUserId) => {
         const userId = explicitUserId || storedUserId();
@@ -74,14 +70,15 @@ export const useAppStore = create<AppStore>()(
         }
       },
       addToWatchlist: (asset) => {
-        const exists = get().watchlist.some((w) => w.ticker === asset.ticker);
+        const ticker = asset.ticker.toUpperCase();
+        const exists = get().watchlist.some((w) => w.ticker.toUpperCase() === ticker);
         if (exists) return;
 
         set((state) => ({
           watchlist: [
             ...state.watchlist,
             {
-              ticker: asset.ticker,
+              ticker,
               name: asset.name,
               addedAt: Date.now(),
             },
@@ -90,7 +87,7 @@ export const useAppStore = create<AppStore>()(
 
         const userId = storedUserId();
         if (userId) {
-          void addWatchlistAsset(userId, asset)
+          void addWatchlistAsset(userId, { ...asset, ticker })
             .then((result) => {
               if (result?.watchlist) set({ watchlist: result.watchlist });
             })
@@ -98,20 +95,21 @@ export const useAppStore = create<AppStore>()(
         }
       },
       removeFromWatchlist: (ticker) => {
+        const normalized = ticker.toUpperCase();
         set((state) => ({
-          watchlist: state.watchlist.filter((w) => w.ticker !== ticker),
+          watchlist: state.watchlist.filter((w) => w.ticker.toUpperCase() !== normalized),
         }));
 
         const userId = storedUserId();
         if (userId) {
-          void removeWatchlistAsset(userId, ticker)
+          void removeWatchlistAsset(userId, normalized)
             .then((result) => {
               if (result?.watchlist) set({ watchlist: result.watchlist });
             })
             .catch(() => undefined);
         }
       },
-      isInWatchlist: (ticker) => get().watchlist.some((w) => w.ticker === ticker),
+      isInWatchlist: (ticker) => get().watchlist.some((w) => w.ticker.toUpperCase() === ticker.toUpperCase()),
     }),
     {
       name: 'invest-platform-storage',
