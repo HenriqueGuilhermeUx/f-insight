@@ -1,333 +1,300 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Bell,
+  Loader2,
+  Plus,
+  Search,
   Star,
   Trash2,
-  Plus,
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  Search,
-  ChevronRight,
-  AlertCircle,
-  BarChart3,
+  Wifi,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { formatPrice, formatPercent, getChangeColor, getChangeBgColor } from '@/lib/utils';
-import { fetchAssetByTicker, mockData } from '@/services/marketData';
-import { useAppStore } from '@/hooks/useStore';
+import { cn, formatPercent, formatPrice, getAssetTypeLabel } from '@/lib/utils';
 import { Layout } from '@/components/layout/Layout';
-import { Asset, WatchlistItem } from '@/types';
-
-function WatchlistRow({ item, onRemove }: { item: WatchlistItem; onRemove: (ticker: string) => void }) {
-  const [asset, setAsset] = useState<Asset | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadAsset = async () => {
-      try {
-        const data = await fetchAssetByTicker(item.ticker);
-        setAsset(data);
-      } catch (e) {
-        // Find in mock data
-        const allAssets = [
-          ...mockData.stocks.br,
-          ...mockData.stocks.us,
-          ...mockData.crypto,
-        ];
-        const found = allAssets.find(a => a.ticker === item.ticker);
-        setAsset(found || null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAsset();
-  }, [item.ticker]);
-
-  if (loading) {
-    return (
-      <tr className="border-b border-slate-800/50">
-        <td className="py-4 px-4"><div className="h-8 w-24 skeleton" /></td>
-        <td className="py-4 px-4"><div className="h-5 w-20 skeleton" /></td>
-        <td className="py-4 px-4"><div className="h-5 w-24 skeleton ml-auto" /></td>
-        <td className="py-4 px-4"><div className="h-5 w-16 skeleton ml-auto" /></td>
-        <td className="py-4 px-4"><div className="h-8 w-8 skeleton ml-auto" /></td>
-      </tr>
-    );
-  }
-
-  if (!asset) {
-    return (
-      <tr className="border-b border-slate-800/50">
-        <td className="py-4 px-4">
-          <div className="flex items-center gap-3">
-            <span className="font-mono font-bold text-cyan-400">{item.ticker}</span>
-            <span className="text-xs text-slate-400">{item.name}</span>
-          </div>
-        </td>
-        <td colSpan={3} className="py-4 px-4 text-slate-500 text-sm">
-          Ativo não encontrado
-        </td>
-        <td className="py-4 px-4">
-          <button
-            onClick={() => onRemove(item.ticker)}
-            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
-  const isPositive = asset.changePercent >= 0;
-
-  return (
-    <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-      <td className="py-4 px-4">
-        <Link to={`/ativo/${asset.ticker}`} className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-slate-700/50 rounded-lg flex items-center justify-center">
-            <span className="font-bold text-cyan-400 text-xs">{asset.ticker.slice(0, 3)}</span>
-          </div>
-          <div>
-            <p className="font-mono font-bold text-cyan-400 group-hover:text-cyan-300">
-              {asset.ticker}
-            </p>
-            <p className="text-xs text-slate-400">{asset.name}</p>
-          </div>
-        </Link>
-      </td>
-      <td className="py-4 px-4">
-        <span className={cn(
-          'text-xs px-2 py-0.5 rounded',
-          asset.type === 'stock' ? 'bg-blue-500/20 text-blue-400' :
-          asset.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
-          'bg-slate-500/20 text-slate-400'
-        )}>
-          {asset.type.toUpperCase()}
-        </span>
-      </td>
-      <td className="py-4 px-4 text-right">
-        <p className="font-mono font-bold text-white">{formatPrice(asset.price, asset.currency)}</p>
-      </td>
-      <td className="py-4 px-4 text-right">
-        <span className={cn(
-          'font-mono text-sm px-2 py-1 rounded',
-          isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-        )}>
-          {formatPercent(asset.changePercent)}
-        </span>
-      </td>
-      <td className="py-4 px-4">
-        <button
-          onClick={() => onRemove(item.ticker)}
-          className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </td>
-    </tr>
-  );
-}
+import { useAppStore } from '@/hooks/useStore';
+import {
+  catalogEntry,
+  fetchLiveAssetSnapshots,
+  searchAssetCatalog,
+  watchlistAssetInput,
+  type LiveAssetSnapshot,
+} from '@/services/liveMarket';
 
 export default function Watchlist() {
   const { watchlist, removeFromWatchlist, addToWatchlist } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Asset[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [snapshots, setSnapshots] = useState<Record<string, LiveAssetSnapshot>>({});
 
-  // Simulated search
+  const tickerKey = useMemo(
+    () => watchlist.map((item) => item.ticker.toUpperCase()).sort().join('|'),
+    [watchlist],
+  );
+
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
+    let active = true;
+
+    async function load() {
+      if (!tickerKey) {
+        setSnapshots({});
+        setSource('');
+        setUpdatedAt(null);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await fetchLiveAssetSnapshots(tickerKey.split('|'));
+        if (!active) return;
+        setSnapshots(
+          Object.fromEntries(result.snapshots.map((snapshot) => [snapshot.asset.ticker, snapshot])),
+        );
+        setSource(result.source);
+        setUpdatedAt(result.updatedAt);
+      } catch {
+        if (!active) return;
+        setSnapshots({});
+        setSource('indisponível');
+        setUpdatedAt(null);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
 
-    const q = searchQuery.toLowerCase();
-    const allAssets = [
-      ...mockData.stocks.br,
-      ...mockData.stocks.us,
-      ...mockData.crypto,
-      ...mockData.etfs,
-      ...mockData.fiis,
-    ];
-    const filtered = allAssets.filter(a =>
-      a.ticker.toLowerCase().includes(q) ||
-      a.name.toLowerCase().includes(q)
-    ).slice(0, 10);
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [tickerKey]);
 
-    setSearchResults(filtered);
-  }, [searchQuery]);
+  const searchResults = useMemo(() => searchAssetCatalog(searchQuery), [searchQuery]);
 
-  const handleRemove = (ticker: string) => {
-    removeFromWatchlist(ticker);
-  };
-
-  const handleAddAsset = (asset: Asset) => {
-    addToWatchlist(asset);
-    setSearchQuery('');
-    setShowAddModal(false);
-  };
+  const liveCount = Object.values(snapshots).filter((item) => item.dataAvailable).length;
+  const stockCount = watchlist.filter((item) => catalogEntry(item.ticker)?.type === 'stock').length;
+  const alternativeCount = watchlist.filter((item) => {
+    const type = catalogEntry(item.ticker)?.type;
+    return type === 'crypto' || type === 'etf' || type === 'fii';
+  }).length;
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Star className="w-6 h-6 text-amber-400" />
+          <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+            <Star className="h-6 w-6 text-amber-400" />
             Minha Watchlist
           </h1>
-          <p className="text-slate-400 mt-1">
-            Acompanhe seus ativos favoritos
+          <p className="mt-1 text-slate-400">
+            Acompanhe preços e variações sem dados de demonstração misturados ao mercado real.
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 font-bold text-white transition hover:bg-primary/90"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-4 w-4" />
           Adicionar
         </button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-          <p className="text-xs text-slate-400 mb-1">Total de Ativos</p>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+          <p className="mb-1 text-xs text-slate-400">Ativos acompanhados</p>
           <p className="text-2xl font-bold text-white">{watchlist.length}</p>
         </div>
-        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-          <p className="text-xs text-slate-400 mb-1">Ações</p>
-          <p className="text-2xl font-bold text-cyan-400">
-            {watchlist.filter(w =>
-              mockData.stocks.br.some(a => a.ticker === w.ticker) ||
-              mockData.stocks.us.some(a => a.ticker === w.ticker)
-            ).length}
-          </p>
+        <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+          <p className="mb-1 text-xs text-slate-400">Com cotação disponível</p>
+          <p className="text-2xl font-bold text-emerald-400">{liveCount}</p>
         </div>
-        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-          <p className="text-xs text-slate-400 mb-1">Criptos</p>
-          <p className="text-2xl font-bold text-orange-400">
-            {watchlist.filter(w => mockData.crypto.some(a => a.ticker === w.ticker)).length}
-          </p>
+        <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+          <p className="mb-1 text-xs text-slate-400">Ações</p>
+          <p className="text-2xl font-bold text-cyan-400">{stockCount}</p>
         </div>
-        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/40">
-          <p className="text-xs text-slate-400 mb-1">ETFs/FIIs</p>
-          <p className="text-2xl font-bold text-purple-400">
-            {watchlist.filter(w =>
-              mockData.etfs.some(a => a.ticker === w.ticker) ||
-              mockData.fiis.some(a => a.ticker === w.ticker)
-            ).length}
-          </p>
+        <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+          <p className="mb-1 text-xs text-slate-400">Cripto / ETF / FII</p>
+          <p className="text-2xl font-bold text-purple-400">{alternativeCount}</p>
         </div>
       </div>
 
-      {/* Watchlist Table */}
+      {watchlist.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-700/50 bg-slate-900/60 px-3 py-1.5">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+            {loading ? 'Atualizando mercado...' : `Fonte: ${source || 'API F-Insight'}`}
+          </span>
+          {updatedAt && (
+            <span>
+              Atualizado em {new Date(updatedAt).toLocaleString('pt-BR')}
+            </span>
+          )}
+        </div>
+      )}
+
       {watchlist.length === 0 ? (
-        <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 p-12 text-center">
-          <Star className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Sua watchlist está vazia</h3>
-          <p className="text-slate-400 mb-6">
-            Adicione ativos para acompanhar seus preços e variações
+        <div className="rounded-2xl border border-slate-700/40 bg-slate-800/40 p-12 text-center">
+          <Star className="mx-auto mb-4 h-16 w-16 text-slate-600" />
+          <h3 className="mb-2 text-xl font-bold text-white">Sua watchlist está vazia</h3>
+          <p className="mb-6 text-slate-400">
+            Adicione ativos para acompanhar o mercado com persistência na sua conta.
           </p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors"
+            className="rounded-xl bg-primary px-6 py-3 font-bold text-white transition hover:bg-primary/90"
           >
-            <Plus className="w-4 h-4 inline mr-2" />
-            Adicionar Ativos
+            <Plus className="mr-2 inline h-4 w-4" />
+            Adicionar ativo
           </button>
         </div>
       ) : (
-        <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-800/40">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-700/50 text-left text-xs text-slate-400 uppercase tracking-wider">
-                  <th className="py-3 px-4 font-medium">Ativo</th>
-                  <th className="py-3 px-4 font-medium">Tipo</th>
-                  <th className="py-3 px-4 font-medium text-right">Preço</th>
-                  <th className="py-3 px-4 font-medium text-right">Variação</th>
-                  <th className="py-3 px-4 font-medium w-16"></th>
+                <tr className="border-b border-slate-700/50 text-left text-xs uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-3 font-medium">Ativo</th>
+                  <th className="px-4 py-3 font-medium">Tipo</th>
+                  <th className="px-4 py-3 text-right font-medium">Preço</th>
+                  <th className="px-4 py-3 text-right font-medium">Variação</th>
+                  <th className="px-4 py-3 text-right font-medium">Fonte</th>
+                  <th className="w-16 px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {watchlist.map((item) => (
-                  <WatchlistRow key={item.ticker} item={item} onRemove={handleRemove} />
-                ))}
+                {watchlist.map((item) => {
+                  const snapshot = snapshots[item.ticker.toUpperCase()];
+                  const meta = catalogEntry(item.ticker);
+                  const asset = snapshot?.asset;
+                  const available = Boolean(snapshot?.dataAvailable && asset);
+                  const isPositive = (asset?.changePercent || 0) >= 0;
+
+                  return (
+                    <tr key={item.ticker} className="border-b border-slate-800/50 transition hover:bg-slate-800/30">
+                      <td className="px-4 py-4">
+                        <Link to={`/ativo/${item.ticker}`} className="group flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-700/50">
+                            <span className="text-xs font-bold text-cyan-400">{item.ticker.slice(0, 3)}</span>
+                          </div>
+                          <div>
+                            <p className="font-mono font-bold text-cyan-400 group-hover:text-cyan-300">{item.ticker}</p>
+                            <p className="text-xs text-slate-400">{item.name}</p>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="rounded bg-slate-700/60 px-2 py-1 text-xs text-slate-300">
+                          {meta ? getAssetTypeLabel(meta.type) : 'Ativo'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono font-bold text-white">
+                        {available && asset ? formatPrice(asset.price, asset.currency) : '—'}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {available && asset ? (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded px-2 py-1 font-mono text-sm',
+                              isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400',
+                            )}
+                          >
+                            {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                            {formatPercent(asset.changePercent)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500">indisponível</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right text-xs text-slate-500">
+                        {snapshot?.provider || '—'}
+                      </td>
+                      <td className="px-4 py-4">
+                        <button
+                          onClick={() => removeFromWatchlist(item.ticker)}
+                          aria-label={`Remover ${item.ticker}`}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Add Modal */}
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Link to="/radar" className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 transition hover:bg-slate-800/70">
+          <Search className="mb-2 h-5 w-5 text-cyan-400" />
+          <p className="font-semibold text-white">Explorar mercado</p>
+          <p className="mt-1 text-xs text-slate-400">Adicione ativos a partir do Radar.</p>
+        </Link>
+        <Link to="/alertas" className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 transition hover:bg-slate-800/70">
+          <Bell className="mb-2 h-5 w-5 text-amber-400" />
+          <p className="font-semibold text-white">Configurar alertas</p>
+          <p className="mt-1 text-xs text-slate-400">Acompanhe condições de preço e variação.</p>
+        </Link>
+        <Link to="/ia-financeira" className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 transition hover:bg-slate-800/70">
+          <Wifi className="mb-2 h-5 w-5 text-emerald-400" />
+          <p className="font-semibold text-white">Levar ao Radar IA</p>
+          <p className="mt-1 text-xs text-slate-400">Organize hipóteses, riscos e próximos estudos.</p>
+        </Link>
+      </div>
+
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-lg animate-fade-in">
-            <div className="flex items-center justify-between p-4 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white">Adicionar à Watchlist</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-700/50 bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">Adicionar à Watchlist</h3>
+                <p className="text-xs text-slate-500">A busca usa um catálogo de símbolos; a cotação vem da API ao vivo.</p>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-4">
               <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text"
-                  placeholder="Buscar por ticker ou nome..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Ticker ou nome..."
+                  className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 py-3 pl-10 pr-4 text-white outline-none placeholder:text-slate-500 focus:border-primary/50"
                   autoFocus
                 />
               </div>
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {searchQuery.length < 2 ? (
-                  <p className="text-center text-slate-500 py-4">
-                    Digite pelo menos 2 caracteres para buscar
-                  </p>
+
+              <div className="max-h-80 space-y-2 overflow-y-auto">
+                {searchQuery.trim().length < 2 ? (
+                  <p className="py-6 text-center text-sm text-slate-500">Digite pelo menos 2 caracteres.</p>
                 ) : searchResults.length === 0 ? (
-                  <p className="text-center text-slate-500 py-4">
-                    Nenhum ativo encontrado
-                  </p>
+                  <p className="py-6 text-center text-sm text-slate-500">Nenhum ativo no catálogo atual.</p>
                 ) : (
-                  searchResults.map((asset) => {
-                    const isPositive = asset.changePercent >= 0;
-                    return (
-                      <button
-                        key={asset.ticker}
-                        onClick={() => handleAddAsset(asset)}
-                        className="w-full flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-700/50 rounded-lg flex items-center justify-center">
-                            <span className="text-xs font-bold text-cyan-400">{asset.ticker.slice(0, 3)}</span>
-                          </div>
-                          <div className="text-left">
-                            <p className="font-mono font-bold text-cyan-400">{asset.ticker}</p>
-                            <p className="text-xs text-slate-400">{asset.name}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-mono font-bold text-white">{formatPrice(asset.price, asset.currency)}</p>
-                          <span className={cn(
-                            'text-xs font-mono',
-                            isPositive ? 'text-emerald-400' : 'text-red-400'
-                          )}>
-                            {formatPercent(asset.changePercent)}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })
+                  searchResults.map((entry) => (
+                    <button
+                      key={entry.ticker}
+                      onClick={() => {
+                        addToWatchlist(watchlistAssetInput(entry));
+                        setSearchQuery('');
+                        setShowAddModal(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl bg-slate-800/50 p-3 text-left transition hover:bg-slate-800"
+                    >
+                      <div>
+                        <p className="font-mono font-bold text-cyan-400">{entry.ticker}</p>
+                        <p className="text-xs text-slate-400">{entry.name}</p>
+                      </div>
+                      <span className="rounded bg-slate-700/60 px-2 py-1 text-xs text-slate-300">{getAssetTypeLabel(entry.type)}</span>
+                    </button>
+                  ))
                 )}
               </div>
             </div>
@@ -335,38 +302,8 @@ export default function Watchlist() {
         </div>
       )}
 
-      {/* Quick Links */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link
-          to="/radar"
-          className="bg-slate-800/40 hover:bg-slate-800/70 rounded-xl p-4 border border-slate-700/40 transition-all flex items-center gap-3"
-        >
-          <Search className="w-5 h-5 text-cyan-400" />
-          <div>
-            <p className="font-semibold text-white">Explorar Ativos</p>
-            <p className="text-xs text-slate-400">Busque novos ativos</p>
-          </div>
-        </Link>
-        <Link
-          to="/alertas"
-          className="bg-slate-800/40 hover:bg-slate-800/70 rounded-xl p-4 border border-slate-700/40 transition-all flex items-center gap-3"
-        >
-          <BarChart3 className="w-5 h-5 text-amber-400" />
-          <div>
-            <p className="font-semibold text-white">Configurar Alertas</p>
-            <p className="text-xs text-slate-400">Receba notificações de preço</p>
-          </div>
-        </Link>
-        <Link
-          to="/analises"
-          className="bg-slate-800/40 hover:bg-slate-800/70 rounded-xl p-4 border border-slate-700/40 transition-all flex items-center gap-3"
-        >
-          <TrendingUp className="w-5 h-5 text-emerald-400" />
-          <div>
-            <p className="font-semibold text-white">Ver Análises</p>
-            <p className="text-xs text-slate-400">Análises Graham e valuation</p>
-          </div>
-        </Link>
+      <div className="mt-6 rounded-xl border border-slate-700/40 bg-slate-800/30 p-4 text-xs leading-relaxed text-slate-400">
+        Cotações são informativas e podem ter atraso ou indisponibilidade temporária. O F-Insight não executa ordens nem transforma variação de preço em recomendação de investimento.
       </div>
     </Layout>
   );
