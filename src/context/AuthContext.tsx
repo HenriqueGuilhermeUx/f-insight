@@ -47,9 +47,13 @@ function normalizeEmail(email: string) {
 }
 
 function normalizeRole(value: unknown): AuthRole {
-  if (value === 'advisor' || value === 'client' || value === 'admin') return value;
-  if (value === 'tenant_admin' || value === 'platform_admin') return 'admin';
+  if (value === 'advisor') return 'advisor';
+  if (value === 'admin' || value === 'tenant_admin' || value === 'platform_admin') return 'admin';
   return 'client';
+}
+
+function roleFromServerMetadata(user: { app_metadata?: Record<string, unknown> } | null | undefined): AuthRole {
+  return normalizeRole(user?.app_metadata?.role);
 }
 
 function routeForRole(role: AuthRole = 'client') {
@@ -238,13 +242,27 @@ function readLocalUser(): AuthUser | null {
   }
 }
 
+async function currentAccessToken() {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 async function applyBillingEntitlement(user: AuthUser): Promise<AuthUser> {
   if (user.isDemo || normalizeEmail(user.email) === REVIEWER_EMAIL) return user;
 
   try {
+    const token = await currentAccessToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     const response = await fetch(API_ENDPOINTS.billing.entitlement, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ accountId: user.id }),
     });
 
@@ -264,6 +282,25 @@ async function applyBillingEntitlement(user: AuthUser): Promise<AuthUser> {
   } catch {
     return user;
   }
+}
+
+function mapSessionUser(
+  sessionUser: {
+    id: string;
+    email?: string | null;
+    app_metadata?: Record<string, unknown>;
+    user_metadata?: Record<string, unknown>;
+  },
+  fallback?: AuthUser | null,
+): AuthUser {
+  return {
+    id: sessionUser.id,
+    email: sessionUser.email || fallback?.email || '',
+    fullName: String(sessionUser.user_metadata?.full_name || sessionUser.email || fallback?.fullName || 'Usuário'),
+    role: roleFromServerMetadata(sessionUser),
+    isDemo: false,
+    plan: fallback?.plan || 'free',
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -292,18 +329,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data } = await supabase.auth.getSession();
           const sessionUser = data.session?.user;
           if (sessionUser && mounted) {
-            const mappedUser: AuthUser = {
-              id: sessionUser.id,
-              email: sessionUser.email || localUser?.email || '',
-              fullName: String(sessionUser.user_metadata?.full_name || sessionUser.email || 'Usuário'),
-              role: normalizeRole(sessionUser.user_metadata?.role || localUser?.role),
-              isDemo: false,
-              plan: localUser?.plan || 'free',
-            };
-            await commitUser(mappedUser);
+            await commitUser(mapSessionUser(sessionUser, localUser));
           }
         } catch {
-          // Mantém o acesso local quando a autenticação online estiver indisponível.
+          // Mantém apenas a sessão local de cliente quando o login online estiver indisponível.
         }
       }
 
@@ -314,15 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) return;
-      const mappedUser: AuthUser = {
-        id: session.user.id,
-        email: session.user.email || '',
-        fullName: String(session.user.user_metadata?.full_name || session.user.email || 'Usuário'),
-        role: normalizeRole(session.user.user_metadata?.role),
-        isDemo: false,
-        plan: 'free',
-      };
-      void commitUser(mappedUser);
+      void commitUser(mapSessionUser(session.user));
     });
 
     return () => {
@@ -360,34 +381,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return nextUser;
         }
 
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            if (!data.user) throw new Error('Login não retornou usuário.');
+
+            const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
+            setUser(nextUser);
+            saveLocalUser(nextUser);
+            return nextUser;
+          } catch {
+            // Tenta o fallback local de cliente abaixo.
+          }
+        }
+
         const localAccount = await findAccount(normalizedEmail, password);
         if (localAccount) {
           const nextUser = await applyBillingEntitlement(userFromAccount(localAccount));
           setUser(nextUser);
           saveLocalUser(nextUser);
           return nextUser;
-        }
-
-        if (supabase) {
-          try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            if (!data.user) throw new Error('Login não retornou usuário.');
-            const mappedUser: AuthUser = {
-              id: data.user.id,
-              email: data.user.email || email,
-              fullName: String(data.user.user_metadata?.full_name || data.user.email || email),
-              role: normalizeRole(data.user.user_metadata?.role),
-              isDemo: false,
-              plan: 'free',
-            };
-            const nextUser = await applyBillingEntitlement(mappedUser);
-            setUser(nextUser);
-            saveLocalUser(nextUser);
-            return nextUser;
-          } catch {
-            // Cai para a mensagem amigável abaixo.
-          }
         }
 
         throw new Error(
@@ -407,9 +421,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           plan: 'free',
         };
 
-        if (input.role === 'client') {
-          saveAccount(account);
-        }
+        // O fallback local nunca cria assessor ou admin.
+        saveAccount(account);
 
         if (supabase) {
           try {
@@ -419,27 +432,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               options: {
                 data: {
                   full_name: input.fullName,
-                  role: input.role,
                 },
               },
             });
             if (error) throw error;
-            if (data.user) {
-              const profileRole = input.role === 'admin' ? 'tenant_admin' : input.role;
-              await supabase
-                .from('profiles')
-                .upsert(
-                  {
-                    auth_user_id: data.user.id,
-                    email: input.email,
-                    full_name: input.fullName,
-                    role: profileRole,
-                  },
-                  { onConflict: 'email' }
-                );
+
+            if (data.user && data.session) {
+              const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
+              setUser(nextUser);
+              saveLocalUser(nextUser);
+              return nextUser;
             }
           } catch {
-            // O cadastro local de cliente continua válido quando Supabase estiver indisponível.
+            // Cadastro local de cliente continua disponível como contingência.
           }
         }
 
