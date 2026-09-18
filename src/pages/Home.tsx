@@ -55,13 +55,6 @@ const fallbackIndicators: LiveIndicator[] = [
   { symbol: 'BBDC4.SA', lastPrice: 14.62, changePercent: -0.18 },
 ];
 
-const fallbackIndexes = [
-  { label: 'IBOVESPA', value: '—', change: 'aguardando dados' },
-  { label: 'S&P 500', value: '—', change: 'aguardando dados' },
-  { label: 'Dólar / Real', value: '—', change: 'aguardando dados' },
-  { label: 'Bitcoin', value: '—', change: 'aguardando dados' },
-];
-
 const fallbackMacro: MacroItem[] = [
   { id: 'selic', label: 'Selic Meta', value: '—', unit: '% a.a.', source: 'dados indisponíveis', interpretation: 'Aguardando atualização do Banco Central.' },
   { id: 'ipca', label: 'IPCA Mensal', value: '—', unit: '% m/m', source: 'dados indisponíveis', interpretation: 'Aguardando atualização da fonte macro.' },
@@ -189,6 +182,42 @@ export default function Home() {
     return { label: 'Mercado misto', text: 'Sem direção única. Separe empresas, setores, valuation e cenário macro.' };
   }, [marketData]);
 
+  const summaryCards = useMemo(() => {
+    const positiveCount = marketData.filter((item) => item.changePercent > 0).length;
+    const averageChange = marketData.length > 0
+      ? marketData.reduce((sum, item) => sum + item.changePercent, 0) / marketData.length
+      : null;
+    const selic = macro.find((item) => item.id === 'selic' || item.label.toLowerCase().includes('selic'));
+    const dollar = macro.find((item) => item.id === 'usdbrl' || item.label.toLowerCase().includes('dólar'));
+
+    return [
+      {
+        label: 'Ativos no radar',
+        value: marketData.length > 0 ? String(marketData.length) : '—',
+        change: marketData.length > 0 ? `${positiveCount} em alta na amostra` : 'aguardando dados',
+        live: marketData.length > 0,
+      },
+      {
+        label: 'Variação média',
+        value: averageChange === null ? '—' : formatPercent(averageChange),
+        change: marketData.length > 0 ? 'amostra acompanhada' : 'aguardando dados',
+        live: averageChange !== null,
+      },
+      {
+        label: 'Selic Meta',
+        value: selic ? formatMacroValue(selic) : '—',
+        change: selic?.source || 'aguardando BCB',
+        live: Boolean(selic && isMacroLive),
+      },
+      {
+        label: 'Dólar / Real',
+        value: dollar ? formatMacroValue(dollar) : '—',
+        change: dollar?.source || 'aguardando fonte',
+        live: Boolean(dollar && isMacroLive),
+      },
+    ];
+  }, [marketData, macro, isMacroLive]);
+
   return (
     <Layout>
       <section className="mb-6 overflow-hidden rounded-[2rem] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/14 via-slate-900 to-slate-950 p-6 lg:p-10">
@@ -231,11 +260,14 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {fallbackIndexes.map((item) => (
+            {summaryCards.map((item) => (
               <div key={item.label} className="rounded-[1.5rem] border border-slate-700/50 bg-slate-900/75 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                  <span className={item.live ? 'h-2 w-2 rounded-full bg-emerald-400' : 'h-2 w-2 rounded-full bg-slate-600'} aria-hidden />
+                </div>
                 <p className="mt-3 text-2xl font-black text-white">{item.value}</p>
-                <p className="mt-2 text-sm font-bold text-slate-500">{item.change}</p>
+                <p className={item.live ? 'mt-2 text-sm font-bold text-emerald-300' : 'mt-2 text-sm font-bold text-slate-500'}>{item.change}</p>
               </div>
             ))}
           </div>
