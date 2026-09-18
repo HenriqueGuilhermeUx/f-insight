@@ -14,6 +14,11 @@ export interface AuthUser {
   plan?: AuthPlan;
 }
 
+export interface SignUpResult {
+  user: AuthUser | null;
+  confirmationRequired: boolean;
+}
+
 interface StoredAccount {
   email: string;
   fullName: string;
@@ -29,7 +34,7 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   signInWithPassword: (email: string, password: string) => Promise<AuthUser>;
-  signUpWithPassword: (input: { email: string; password: string; fullName: string; role: AuthRole }) => Promise<AuthUser>;
+  signUpWithPassword: (input: { email: string; password: string; fullName: string; role: AuthRole }) => Promise<SignUpResult>;
   enterDemo: (role: AuthRole) => AuthUser;
   refreshEntitlement: () => Promise<AuthUser | null>;
   logout: () => Promise<void>;
@@ -88,6 +93,10 @@ function reviewerUser(): AuthUser {
     isDemo: false,
     plan: 'premium',
   };
+}
+
+function isLocalBypassUser(user: AuthUser | null | undefined) {
+  return Boolean(user && (user.isDemo || normalizeEmail(user.email) === REVIEWER_EMAIL));
 }
 
 function userFromAccount(account: StoredAccount): AuthUser {
@@ -303,6 +312,17 @@ function mapSessionUser(
   };
 }
 
+function friendlyAuthError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('email not confirmed')) {
+    return 'Confirme seu e-mail antes de entrar. Abra a mensagem enviada pelo F-Insight e depois faça login.';
+  }
+  if (normalized.includes('invalid login credentials')) {
+    return 'E-mail ou senha inválidos.';
+  }
+  return message;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -318,22 +338,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return entitled;
     }
 
+    function clearUser() {
+      saveLocalUser(null);
+      if (mounted) setUser(null);
+    }
+
     async function boot() {
       const localUser = readLocalUser();
-      if (localUser && mounted) {
-        await commitUser(localUser);
-      }
 
       if (isSupabaseConfigured && supabase) {
+        // Produção autenticada nunca reaproveita contas locais comuns.
+        localStorage.removeItem(ACCOUNTS_KEY);
+
         try {
-          const { data } = await supabase.auth.getSession();
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+
           const sessionUser = data.session?.user;
           if (sessionUser && mounted) {
             await commitUser(mapSessionUser(sessionUser, localUser));
+          } else if (isLocalBypassUser(localUser) && mounted) {
+            await commitUser(localUser as AuthUser);
+          } else {
+            clearUser();
           }
         } catch {
-          // Mantém apenas a sessão local de cliente quando o login online estiver indisponível.
+          if (isLocalBypassUser(localUser) && mounted) {
+            await commitUser(localUser as AuthUser);
+          } else {
+            clearUser();
+          }
         }
+      } else if (localUser && mounted) {
+        await commitUser(localUser);
       }
 
       if (mounted) setLoading(false);
@@ -342,8 +379,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void boot();
 
     const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) return;
-      void commitUser(mapSessionUser(session.user));
+      if (session?.user) {
+        void commitUser(mapSessionUser(session.user, readLocalUser()));
+        return;
+      }
+
+      const localUser = readLocalUser();
+      if (isLocalBypassUser(localUser)) {
+        if (localUser) void commitUser(localUser);
+        return;
+      }
+
+      clearUser();
     });
 
     return () => {
@@ -381,19 +428,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return nextUser;
         }
 
-        if (supabase) {
-          try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            if (!data.user) throw new Error('Login não retornou usuário.');
+        if (isSupabaseConfigured && supabase) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw new Error(friendlyAuthError(error.message));
+          if (!data.user || !data.session) throw new Error('Login não criou uma sessão válida. Tente novamente.');
 
-            const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
-            setUser(nextUser);
-            saveLocalUser(nextUser);
-            return nextUser;
-          } catch {
-            // Tenta o fallback local de cliente abaixo.
-          }
+          const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
+          setUser(nextUser);
+          saveLocalUser(nextUser);
+          return nextUser;
         }
 
         const localAccount = await findAccount(normalizedEmail, password);
@@ -410,8 +453,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async signUpWithPassword(input) {
         const email = normalizeEmail(input.email);
-        const { passwordHash, passwordSalt } = await createPasswordRecord(input.password);
 
+        if (isSupabaseConfigured && supabase) {
+          const { data, error } = await supabase.auth.signUp({
+            email: input.email,
+            password: input.password,
+            options: {
+              data: {
+                full_name: input.fullName,
+              },
+            },
+          });
+          if (error) throw new Error(friendlyAuthError(error.message));
+          if (!data.user) throw new Error('Cadastro não retornou usuário. Tente novamente.');
+
+          if (!data.session) {
+            setUser(null);
+            saveLocalUser(null);
+            return { user: null, confirmationRequired: true };
+          }
+
+          const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
+          setUser(nextUser);
+          saveLocalUser(nextUser);
+          return { user: nextUser, confirmationRequired: false };
+        }
+
+        const { passwordHash, passwordSalt } = await createPasswordRecord(input.password);
         const account: StoredAccount = {
           email,
           passwordHash,
@@ -421,37 +489,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           plan: 'free',
         };
 
-        // O fallback local nunca cria assessor ou admin.
+        // Fallback local existe somente quando o Supabase não está configurado.
         saveAccount(account);
-
-        if (supabase) {
-          try {
-            const { data, error } = await supabase.auth.signUp({
-              email: input.email,
-              password: input.password,
-              options: {
-                data: {
-                  full_name: input.fullName,
-                },
-              },
-            });
-            if (error) throw error;
-
-            if (data.user && data.session) {
-              const nextUser = await applyBillingEntitlement(mapSessionUser(data.user));
-              setUser(nextUser);
-              saveLocalUser(nextUser);
-              return nextUser;
-            }
-          } catch {
-            // Cadastro local de cliente continua disponível como contingência.
-          }
-        }
-
         const nextUser = userFromAccount(account);
         setUser(nextUser);
         saveLocalUser(nextUser);
-        return nextUser;
+        return { user: nextUser, confirmationRequired: false };
       },
       async logout() {
         saveLocalUser(null);
