@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -6,15 +7,18 @@ import {
   Calculator,
   CheckCircle2,
   Clock3,
+  CreditCard,
   LineChart,
+  Loader2,
   Newspaper,
   Radar,
   ShieldCheck,
   Sparkles,
   Target,
-  WalletCards,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
+import { useAuth } from '@/context/AuthContext';
+import API_ENDPOINTS from '@/config/api';
 
 const freeItems = [
   'Cotações principais e radar público',
@@ -43,7 +47,72 @@ const featureCards = [
   { title: 'Ferramentas de estudo', text: 'Use screener, Graham & Valor, simulações e backtesting para testar hipóteses.', icon: Calculator },
 ];
 
+interface CheckoutResponse {
+  ok: boolean;
+  demoMode?: boolean;
+  error?: string;
+  message?: string;
+  invoice?: {
+    correlationId?: string;
+    paymentLinkUrl?: string | null;
+    brCode?: string | null;
+    amountCents?: number;
+  };
+}
+
 export default function PremiumIndividual() {
+  const { user } = useAuth();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [pixCode, setPixCode] = useState('');
+
+  async function startCheckout() {
+    if (!user || checkoutLoading) return;
+
+    setCheckoutLoading(true);
+    setCheckoutError('');
+    setPixCode('');
+
+    try {
+      const response = await fetch(API_ENDPOINTS.billing.checkout, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: user.id,
+          planId: 'individual',
+          customerName: user.fullName,
+          customerEmail: user.email,
+        }),
+      });
+
+      const payload = (await response.json()) as CheckoutResponse;
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || payload.error || 'Não foi possível gerar a cobrança.');
+      }
+
+      if (payload.invoice?.paymentLinkUrl) {
+        window.location.assign(payload.invoice.paymentLinkUrl);
+        return;
+      }
+
+      if (payload.invoice?.brCode) {
+        setPixCode(payload.invoice.brCode);
+        return;
+      }
+
+      throw new Error('A cobrança foi criada, mas o provedor não retornou link ou código Pix.');
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : 'Falha ao iniciar pagamento.');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
+  async function copyPix() {
+    if (!pixCode) return;
+    await navigator.clipboard.writeText(pixCode);
+  }
+
   return (
     <Layout>
       <section className="mb-8 rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 via-slate-900 to-slate-950 p-6 lg:p-10">
@@ -75,12 +144,51 @@ export default function PremiumIndividual() {
           </div>
 
           <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-200">Plano Premium</p>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-200">Plano Premium Individual</p>
             <div className="my-5 flex items-end justify-center gap-2">
               <span className="text-6xl font-black text-white">R$ 19,90</span>
               <span className="pb-2 text-sm font-bold text-slate-400">/mês</span>
             </div>
             <p className="text-sm leading-relaxed text-slate-300">Para quem quer transformar dados financeiros em clareza, acompanhamento e um plano de evolução.</p>
+
+            <div className="mt-5">
+              {user ? (
+                <button
+                  type="button"
+                  onClick={startCheckout}
+                  disabled={checkoutLoading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-70"
+                >
+                  {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {checkoutLoading ? 'Gerando Pix...' : 'Assinar Premium via Pix'}
+                </button>
+              ) : (
+                <Link
+                  to="/cadastro-gratis?mode=signup&next=/premium"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Criar conta para assinar
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+
+              {checkoutError && (
+                <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-left text-xs font-semibold text-red-200">
+                  {checkoutError}
+                </p>
+              )}
+
+              {pixCode && (
+                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-slate-950/60 p-3 text-left">
+                  <p className="text-xs font-bold text-emerald-200">Pix copia e cola</p>
+                  <p className="mt-2 break-all font-mono text-[11px] text-slate-400">{pixCode}</p>
+                  <button type="button" onClick={copyPix} className="mt-3 text-xs font-black text-cyan-300 hover:text-cyan-200">
+                    Copiar código Pix
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="mt-5 grid gap-3 text-left">
               <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/50 p-4">
                 <p className="mb-1 flex items-center gap-2 text-sm font-black text-white"><Target className="h-4 w-4 text-emerald-300" /> Vida financeira</p>
@@ -113,7 +221,7 @@ export default function PremiumIndividual() {
         </div>
 
         <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6">
-          <h2 className="mb-4 text-2xl font-black text-white">Premium R$ 19,90</h2>
+          <h2 className="mb-4 text-2xl font-black text-white">Premium Individual · R$ 19,90/mês</h2>
           <div className="space-y-3">
             {premiumItems.map((item) => (
               <div key={item} className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-slate-950/40 p-3">
