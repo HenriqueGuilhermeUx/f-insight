@@ -3,7 +3,7 @@ name: Web Auth Hardening CI
 on:
   push:
     branches:
-      - fix/auth-authorization-hardening
+      - 'fix/**'
   pull_request:
     branches:
       - main
@@ -52,6 +52,26 @@ jobs:
           grep -q 'app_metadata' src/context/AuthContext.tsx
           grep -q 'VITE_SUPABASE_PUBLISHABLE_KEY' src/lib/supabase.ts
           ! grep -q 'dgtpfvjnuroxgamghicd' src/lib/supabase.ts
+
+      - name: Production session consistency guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'confirmationRequired' src/context/AuthContext.tsx
+          grep -q 'confirmationRequired' src/pages/Login.tsx
+          grep -q 'isLocalBypassUser' src/context/AuthContext.tsx
+          grep -q 'localStorage.removeItem(ACCOUNTS_KEY)' src/context/AuthContext.tsx
+          grep -q 'if (isSupabaseConfigured && supabase)' src/context/AuthContext.tsx
+          grep -q 'Login não criou uma sessão válida' src/context/AuthContext.tsx
+          grep -q 'Conta criada. Enviamos um e-mail de confirmação' src/pages/Login.tsx
+          if grep -n 'Cadastro local de cliente continua disponível como contingência' src/context/AuthContext.tsx; then
+            echo 'Configured production auth must not silently fall back to a local account.'
+            exit 1
+          fi
+          if grep -n 'Tenta o fallback local de cliente abaixo' src/context/AuthContext.tsx; then
+            echo 'Configured production login must fail closed instead of using local credentials.'
+            exit 1
+          fi
 
       - name: Authenticated owner API compatibility guard
         shell: bash
