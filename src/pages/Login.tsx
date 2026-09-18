@@ -8,10 +8,13 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { enterDemo, signInWithPassword, signUpWithPassword, routeForRole } = useAuth();
-  const startsAsSignup = location.pathname.includes('cadastro') || new URLSearchParams(location.search).get('mode') === 'signup';
+  const params = new URLSearchParams(location.search);
+  const startsAsSignup = location.pathname.includes('cadastro') || params.get('mode') === 'signup';
+  const confirmed = params.get('confirmed') === '1';
   const [mode, setMode] = useState<'login' | 'signup'>(startsAsSignup ? 'signup' : 'login');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(confirmed ? 'E-mail confirmado. Agora você já pode entrar no F-Insight.' : '');
+  const [messageType, setMessageType] = useState<'error' | 'success'>(confirmed ? 'success' : 'error');
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -25,27 +28,47 @@ export default function Login() {
     return 'Entre no F-Insight.';
   }, [mode]);
 
+  const changeMode = (nextMode: 'login' | 'signup') => {
+    setMode(nextMode);
+    setMessage('');
+    setMessageType('error');
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setMessage('');
+    setMessageType('error');
 
     try {
-      const user = mode === 'login'
-        ? await signInWithPassword(form.email, form.password)
-        : await signUpWithPassword({
-            email: form.email,
-            password: form.password,
-            fullName: form.fullName || form.email,
-            role: 'client',
-          });
+      if (mode === 'login') {
+        const user = await signInWithPassword(form.email, form.password);
+        navigate(routeForRole(user.role));
+        return;
+      }
 
-      navigate(routeForRole(user.role));
+      const result = await signUpWithPassword({
+        email: form.email,
+        password: form.password,
+        fullName: form.fullName || form.email,
+        role: 'client',
+      });
+
+      if (result.confirmationRequired) {
+        setMessageType('success');
+        setMessage('Conta criada. Enviamos um e-mail de confirmação. Confirme seu endereço e depois volte para fazer login.');
+        return;
+      }
+
+      if (result.user) {
+        navigate(routeForRole(result.user.role));
+      }
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : 'Falha ao autenticar.';
       const friendly = rawMessage.toLowerCase().includes('failed to fetch')
-        ? 'Não conseguimos conectar ao login online agora. Tente novamente ou use a demonstração.'
+        ? 'Não conseguimos conectar ao login online agora. Tente novamente em instantes.'
         : rawMessage;
+      setMessageType('error');
       setMessage(friendly);
     } finally {
       setLoading(false);
@@ -92,8 +115,8 @@ export default function Login() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[430px_1fr]">
         <form onSubmit={submit} className="h-fit rounded-3xl border border-slate-700/40 bg-slate-800/40 p-5 lg:p-6">
           <div className="mb-5 flex rounded-xl border border-slate-700/40 bg-slate-950/60 p-1">
-            <button type="button" onClick={() => setMode('login')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${mode === 'login' ? 'bg-cyan-400 text-slate-950' : 'text-slate-400'}`}>Login</button>
-            <button type="button" onClick={() => setMode('signup')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${mode === 'signup' ? 'bg-cyan-400 text-slate-950' : 'text-slate-400'}`}>Criar acesso</button>
+            <button type="button" onClick={() => changeMode('login')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${mode === 'login' ? 'bg-cyan-400 text-slate-950' : 'text-slate-400'}`}>Login</button>
+            <button type="button" onClick={() => changeMode('signup')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${mode === 'signup' ? 'bg-cyan-400 text-slate-950' : 'text-slate-400'}`}>Criar acesso</button>
           </div>
 
           <div className="space-y-4">
@@ -112,7 +135,13 @@ export default function Login() {
               <input required type="password" minLength={6} value={form.password} onChange={(e) => update('password', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-cyan-300/60" placeholder="mínimo 6 caracteres" />
             </label>
 
-            {message && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{message}</p>}
+            {message && (
+              <p className={messageType === 'success'
+                ? 'rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-200'
+                : 'rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200'}>
+                {message}
+              </p>
+            )}
 
             <button disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-300 disabled:opacity-60">
               <LogIn className="h-4 w-4" />
