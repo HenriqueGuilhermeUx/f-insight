@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://dgtpfvjnuroxgamghicd.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_PUBLIC_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLIC_KEY);
 
 export const supabase = isSupabaseConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  ? createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -16,6 +17,6 @@ export const supabase = isSupabaseConfigured
 
 export function logSupabaseDisabled() {
   if (!isSupabaseConfigured) {
-    console.info('Supabase disabled: set VITE_SUPABASE_ANON_KEY in Netlify environment variables.');
+    console.info('Supabase disabled: configure VITE_SUPABASE_URL and a publishable key in Netlify.');
   }
 }
