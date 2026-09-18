@@ -2,6 +2,8 @@ import type { Asset, WatchlistItem } from '@/types';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com').replace(/\/$/, '');
 
+type WatchlistAssetInput = Pick<Asset, 'ticker' | 'name' | 'type'>;
+
 interface RemoteWatchlistItem {
   ticker: string;
   name: string;
@@ -63,7 +65,7 @@ export async function fetchWatchlist(userId: string): Promise<WatchlistItem[]> {
   return normalizeWatchlist(items);
 }
 
-export async function addWatchlistAsset(userId: string, asset: Asset) {
+export async function addWatchlistAsset(userId: string, asset: WatchlistAssetInput) {
   if (!userId) return null;
   const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(`/api/watchlist/${userPathId(userId)}`, {
     method: 'POST',
