@@ -50,7 +50,7 @@ export default function RegisterOffice() {
   };
 
   if (authLoading) return <PageLoader />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login?office=1" replace />;
   if (user.isDemo) return <Navigate to="/area-logada" replace />;
   if (user.role !== 'client') return <Navigate to={routeForRole(user.role)} replace />;
 
