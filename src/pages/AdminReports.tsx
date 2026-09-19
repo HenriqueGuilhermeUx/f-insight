@@ -18,6 +18,8 @@ export default function AdminReports() {
   const initialStats = getWorkspaceStats();
   const [reports, setReports] = useState(initialStats.reports);
   const clients = useMemo(() => initialStats.clients, []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<ReportFormState>({
     ticker: 'PETR4',
     title: 'Como ler um relatório de valuation',
@@ -37,20 +39,28 @@ export default function AdminReports() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const workspace = getWorkspace();
-    const report = publishReport({
-      tenantId: workspace.activeTenantId,
-      advisorId: workspace.activeAdvisorId,
-      clientId: form.clientId || undefined,
-      ticker: form.ticker.toUpperCase(),
-      title: form.title,
-      summary: form.summary,
-      type: form.type,
-      visibility: form.clientId ? 'cliente' : 'interno',
-    });
-    setReports((current) => [report, ...current]);
+    setLoading(true);
+    setError('');
+    try {
+      const workspace = getWorkspace();
+      const report = await publishReport({
+        tenantId: workspace.activeTenantId,
+        advisorId: workspace.activeAdvisorId,
+        clientId: form.clientId || undefined,
+        ticker: form.ticker.toUpperCase(),
+        title: form.title,
+        summary: form.summary,
+        type: form.type,
+        visibility: form.clientId ? 'cliente' : 'interno',
+      });
+      setReports((current) => [report, ...current]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível publicar o relatório.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,11 +83,11 @@ export default function AdminReports() {
           <div className="space-y-4">
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Ticker / Tema</span>
-              <input value={form.ticker} onChange={(e) => update('ticker', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white font-mono outline-none focus:border-primary/50" />
+              <input required value={form.ticker} onChange={(e) => update('ticker', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white font-mono outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Título</span>
-              <input value={form.title} onChange={(e) => update('title', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required value={form.title} onChange={(e) => update('title', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Resumo para o cliente</span>
@@ -99,14 +109,15 @@ export default function AdminReports() {
                 {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
               </select>
             </label>
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button type="button" onClick={() => openPdf(form.ticker)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/50 bg-slate-950/70 px-5 py-3 text-sm font-bold text-slate-200 hover:border-primary/40 transition-colors">
                 <Download className="w-4 h-4" />
                 Ver PDF
               </button>
-              <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+              <button disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
                 <Plus className="w-4 h-4" />
-                Publicar
+                {loading ? 'Publicando...' : 'Publicar'}
               </button>
             </div>
           </div>

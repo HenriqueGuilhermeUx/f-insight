@@ -75,6 +75,8 @@ function statusClass(status?: ContentStatus) {
 export default function AdminContents() {
   const [stats, setStats] = useState(() => getWorkspaceStats());
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<ContentFormState>({
     title: 'Como interpretar a Selic no seu planejamento',
     category: 'macro',
@@ -103,25 +105,33 @@ export default function AdminContents() {
     }));
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setLoading(true);
+    setError('');
     const scheduledAt = form.status === 'scheduled' && form.scheduledAt
       ? new Date(form.scheduledAt).toISOString()
       : undefined;
 
-    publishContent({
-      tenantId: stats.tenant.id,
-      clientId: form.clientId || undefined,
-      title: form.title,
-      category: form.category,
-      description: form.description,
-      origin: form.origin,
-      status: form.status,
-      scheduledAt,
-    });
-    setStats(getWorkspaceStats());
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      await publishContent({
+        tenantId: stats.tenant.id,
+        clientId: form.clientId || undefined,
+        title: form.title,
+        category: form.category,
+        description: form.description,
+        origin: form.origin,
+        status: form.status,
+        scheduledAt,
+      });
+      setStats(getWorkspaceStats());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o conteúdo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,7 +182,7 @@ export default function AdminContents() {
           <div className="space-y-4">
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Título</span>
-              <input value={form.title} onChange={(event) => update('title', event.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required value={form.title} onChange={(event) => update('title', event.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -219,19 +229,20 @@ export default function AdminContents() {
 
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Resumo para o cliente</span>
-              <textarea rows={5} value={form.description} onChange={(event) => update('description', event.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <textarea required rows={5} value={form.description} onChange={(event) => update('description', event.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
 
             {saved && (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Conteúdo salvo no calendário editorial.
+                Conteúdo persistido no calendário editorial.
               </div>
             )}
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
-            <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            <button disabled={loading} className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
               <Plus className="w-4 h-4" />
-              Salvar conteúdo
+              {loading ? 'Salvando...' : 'Salvar conteúdo'}
             </button>
           </div>
         </form>

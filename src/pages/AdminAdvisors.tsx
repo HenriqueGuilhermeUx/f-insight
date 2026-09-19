@@ -6,6 +6,8 @@ import { addAdvisor, getWorkspace, getWorkspaceStats } from '@/services/workspac
 export default function AdminAdvisors() {
   const initialStats = getWorkspaceStats();
   const [advisors, setAdvisors] = useState(initialStats.advisors);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -15,18 +17,26 @@ export default function AdminAdvisors() {
 
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const workspace = getWorkspace();
-    const advisor = addAdvisor({
-      tenantId: workspace.activeTenantId,
-      name: form.name || 'Novo Assessor',
-      email: form.email || 'assessor@escritorio.com',
-      phone: form.phone,
-      roleTitle: form.roleTitle,
-    });
-    setAdvisors((current) => [advisor, ...current]);
-    setForm({ name: '', email: '', phone: '', roleTitle: 'Assessor de Investimentos' });
+    setLoading(true);
+    setError('');
+    try {
+      const workspace = getWorkspace();
+      const advisor = await addAdvisor({
+        tenantId: workspace.activeTenantId,
+        name: form.name || 'Novo Assessor',
+        email: form.email,
+        phone: form.phone,
+        roleTitle: form.roleTitle,
+      });
+      setAdvisors((current) => [advisor, ...current]);
+      setForm({ name: '', email: '', phone: '', roleTitle: 'Assessor de Investimentos' });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível cadastrar o assessor.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,11 +59,11 @@ export default function AdminAdvisors() {
           <div className="space-y-4">
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Nome</span>
-              <input value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">E-mail</span>
-              <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Telefone</span>
@@ -63,9 +73,10 @@ export default function AdminAdvisors() {
               <span className="text-sm text-slate-400 mb-2 block">Cargo</span>
               <input value={form.roleTitle} onChange={(e) => update('roleTitle', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
-            <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+            <button disabled={loading} className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
               <Plus className="w-4 h-4" />
-              Cadastrar e enviar convite
+              {loading ? 'Cadastrando...' : 'Cadastrar e gerar convite'}
             </button>
           </div>
         </form>
@@ -85,7 +96,7 @@ export default function AdminAdvisors() {
                 </div>
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 w-fit">
                   <Send className="w-3.5 h-3.5" />
-                  {advisor.status === 'ativo' ? 'Ativo' : 'Convite enviado'}
+                  {advisor.status === 'ativo' ? 'Ativo' : 'Convite gerado'}
                 </span>
               </div>
             ))}
