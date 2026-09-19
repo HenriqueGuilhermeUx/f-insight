@@ -45,6 +45,18 @@ function isUuid(value?: string) {
   return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 }
 
+function workspaceIdentity(clientName?: string) {
+  const stats = getWorkspaceStats();
+  const client = stats.clients.find((item) => item.name === clientName) || stats.clients[0];
+  return {
+    tenantId: isUuid(stats.tenant?.id) ? stats.tenant?.id : undefined,
+    advisorId: isUuid(client?.advisorId) ? client?.advisorId : (isUuid(stats.advisors[0]?.id) ? stats.advisors[0]?.id : undefined),
+    clientId: isUuid(client?.id) ? client?.id : undefined,
+    clientProfile: client?.profile || 'moderado',
+    realTenant: isUuid(stats.tenant?.id),
+  };
+}
+
 function reasonLabel(reason: FollowUpReason) {
   const labels: Record<FollowUpReason, string> = {
     report: 'Relatório',
@@ -81,7 +93,7 @@ function mapSupabaseTask(row: any): FollowUpTask {
     tenantId: row.tenant_id || undefined,
     advisorId: row.advisor_id || undefined,
     clientId: row.client_id || undefined,
-    clientName: row.client_name || 'Cliente Final Demo',
+    clientName: row.client_name || 'Cliente',
     clientProfile: row.client_profile || 'moderado',
     title: row.title || 'Follow-up',
     reason: row.reason || 'content',
@@ -97,10 +109,12 @@ function mapSupabaseTask(row: any): FollowUpTask {
 }
 
 async function syncFollowUpToSupabase(task: FollowUpTask) {
-  if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase frontend not configured' };
+  if (!isSupabaseConfigured || !supabase || !isUuid(task.tenantId)) {
+    return { ok: false, error: 'Workspace real não disponível para sincronização' };
+  }
 
   const row = {
-    tenant_id: isUuid(task.tenantId) ? task.tenantId : null,
+    tenant_id: task.tenantId,
     advisor_id: isUuid(task.advisorId) ? task.advisorId : null,
     client_id: isUuid(task.clientId) ? task.clientId : null,
     client_name: task.clientName,
@@ -140,12 +154,21 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
 
   const clientName = client?.name || 'Cliente Final Demo';
   const clientProfile = client?.profile || 'moderado';
+  const identity = workspaceIdentity(clientName);
+  const shared = {
+    tenantId: identity.tenantId,
+    advisorId: identity.advisorId,
+    clientId: identity.clientId,
+    clientName,
+    clientProfile,
+    source: 'local' as const,
+    synced: false,
+  };
 
   return [
     {
-      id: 'demo_followup_report',
-      clientName,
-      clientProfile,
+      ...shared,
+      id: identity.realTenant ? makeId() : 'demo_followup_report',
       title: latestReport ? `Comentar relatório ${latestReport.ticker}` : 'Comentar relatório liberado',
       reason: 'report',
       priority: 'alta',
@@ -156,12 +179,10 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(1),
       createdAt: now(),
-      source: 'local',
     },
     {
-      id: 'demo_followup_macro',
-      clientName,
-      clientProfile,
+      ...shared,
+      id: identity.realTenant ? makeId() : 'demo_followup_macro',
       title: macroRoutine ? 'Resumo macro semanal ativo' : 'Criar pauta macro para reunião',
       reason: 'macro',
       priority: 'media',
@@ -170,12 +191,10 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(2),
       createdAt: now(),
-      source: 'local',
     },
     {
-      id: 'demo_followup_content',
-      clientName,
-      clientProfile,
+      ...shared,
+      id: identity.realTenant ? makeId() : 'demo_followup_content',
       title: latestContent ? `Reforçar conteúdo: ${latestContent.title}` : 'Sugerir conteúdo educativo',
       reason: 'content',
       priority: 'baixa',
@@ -186,12 +205,10 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(4),
       createdAt: now(),
-      source: 'local',
     },
     {
-      id: 'demo_followup_risk',
-      clientName,
-      clientProfile,
+      ...shared,
+      id: identity.realTenant ? makeId() : 'demo_followup_risk',
       title: 'Revisar checklist de risco',
       reason: 'risk',
       priority: clientProfile === 'arrojado' ? 'alta' : 'media',
@@ -200,33 +217,46 @@ export function generateFollowUpsFromWorkspace(): FollowUpTask[] {
       status: 'open',
       dueAt: addDays(5),
       createdAt: now(),
-      source: 'local',
     },
   ];
 }
 
 export function getFollowUps() {
   try {
+    const identity = workspaceIdentity();
     const local = readLocalFollowUps();
-    if (local.length === 0) {
-      const seeded = generateFollowUpsFromWorkspace();
-      saveLocalFollowUps(seeded);
-      return seeded;
+    const cleanLocal = identity.realTenant
+      ? local.filter((item) => !item.id.startsWith('demo_followup_'))
+      : local;
+
+    if (cleanLocal.length > 0) {
+      if (cleanLocal.length !== local.length) saveLocalFollowUps(cleanLocal);
+      return cleanLocal;
     }
-    return local;
+
+    if (identity.realTenant) {
+      saveLocalFollowUps([]);
+      return [];
+    }
+
+    const seeded = generateFollowUpsFromWorkspace();
+    saveLocalFollowUps(seeded);
+    return seeded;
   } catch {
-    return generateFollowUpsFromWorkspace();
+    return [];
   }
 }
 
 export async function loadFollowUpsFromSupabase() {
   const local = getFollowUps();
+  const identity = workspaceIdentity();
 
-  if (!isSupabaseConfigured || !supabase) return local;
+  if (!identity.realTenant || !isSupabaseConfigured || !supabase) return local;
 
   const { data, error } = await supabase
     .from('follow_up_tasks')
     .select('id,tenant_id,advisor_id,client_id,client_name,client_profile,title,reason,priority,suggested_action,script,status,due_at,created_at')
+    .eq('tenant_id', identity.tenantId)
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -249,8 +279,13 @@ export function saveFollowUps(items: FollowUpTask[]) {
 
 export function createFollowUp(input: Omit<FollowUpTask, 'id' | 'createdAt' | 'status'>) {
   const items = getFollowUps();
+  const identity = workspaceIdentity(input.clientName);
   const task: FollowUpTask = {
     ...input,
+    tenantId: input.tenantId || identity.tenantId,
+    advisorId: input.advisorId || identity.advisorId,
+    clientId: input.clientId || identity.clientId,
+    clientProfile: input.clientProfile || identity.clientProfile,
     id: makeId(),
     status: 'open',
     createdAt: now(),
@@ -259,7 +294,7 @@ export function createFollowUp(input: Omit<FollowUpTask, 'id' | 'createdAt' | 's
   };
   const next = [task, ...items];
   saveFollowUps(next);
-  void syncFollowUpToSupabase(task);
+  if (identity.realTenant) void syncFollowUpToSupabase(task);
   return task;
 }
 
@@ -281,6 +316,10 @@ export function markFollowUpDone(id: string) {
 export function resetFollowUpsFromWorkspace() {
   const tasks = generateFollowUpsFromWorkspace();
   saveFollowUps(tasks);
+  const identity = workspaceIdentity();
+  if (identity.realTenant) {
+    for (const task of tasks) void syncFollowUpToSupabase(task);
+  }
   return tasks;
 }
 
