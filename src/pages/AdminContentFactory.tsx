@@ -23,6 +23,8 @@ const themeOptions: { value: FactoryTheme; label: string }[] = [
 export default function AdminContentFactory() {
   const [stats, setStats] = useState(() => getWorkspaceStats());
   const [created, setCreated] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<FactoryFormState>({
     theme: 'macro',
     mode: 'drafts',
@@ -38,8 +40,10 @@ export default function AdminContentFactory() {
     startDate: form.startDate || undefined,
   }), [form, stats.tenant.id]);
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setLoading(true);
+    setError('');
     const drafts = generateContentPackage({
       tenantId: stats.tenant.id,
       clientId: form.clientId || undefined,
@@ -48,10 +52,16 @@ export default function AdminContentFactory() {
       startDate: form.startDate || undefined,
     });
 
-    drafts.forEach((item) => publishContent(item));
-    setStats(getWorkspaceStats());
-    setCreated(drafts.length);
-    setTimeout(() => setCreated(0), 3500);
+    try {
+      await Promise.all(drafts.map((item) => publishContent(item)));
+      setStats(getWorkspaceStats());
+      setCreated(drafts.length);
+      setTimeout(() => setCreated(0), 3500);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível gerar o pacote editorial.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -115,13 +125,14 @@ export default function AdminContentFactory() {
             {created > 0 && (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                {created} conteúdos enviados para o calendário editorial.
+                {created} conteúdos persistidos no calendário editorial.
               </div>
             )}
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
-            <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            <button disabled={loading} className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
               <Wand2 className="w-4 h-4" />
-              Gerar pacote
+              {loading ? 'Gerando e salvando...' : 'Gerar pacote'}
             </button>
           </div>
         </form>
