@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { TenantProvider } from './context/TenantContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ProfessionalAccessGuard from './components/auth/ProfessionalAccessGuard';
 import UserDataHydrator from './components/auth/UserDataHydrator';
 import Home from './pages/Home';
 import Pricing from './pages/Pricing';
@@ -17,7 +18,7 @@ import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
 import PublicPortal from './pages/PublicPortal';
-import ClientApp from './pages/ClientApp';
+import ClientAppLiveGate from './pages/ClientAppLiveGate';
 import AutomationOps from './pages/AutomationOps';
 import Radar from './pages/Radar';
 import AssetDetails from './pages/AssetDetails';
@@ -41,11 +42,15 @@ import ToolsHub from './pages/ToolsHub';
 import FinancialCopilot from './pages/FinancialCopilot';
 import FutureAI from './pages/FutureAI';
 import ContactCenter from './pages/ContactCenter';
-import ScheduledUpdates from './pages/ScheduledUpdates';
+import ScheduledUpdatesHydrated from './pages/ScheduledUpdatesHydrated';
 import DataOperations from './pages/DataOperations';
 import Billing from './pages/Billing';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
+
+function Professional({ children }: { children: React.ReactNode }) {
+  return <ProfessionalAccessGuard>{children}</ProfessionalAccessGuard>;
+}
 
 function App() {
   return (
@@ -78,8 +83,8 @@ function App() {
             <Route path="/aviso-educacional" element={<LegalTerms />} />
             <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/app" element={<ClientApp />} />
-            <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ClientApp /></ProtectedRoute>} />
+            <Route path="/app" element={<ClientAppLiveGate />} />
+            <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ClientAppLiveGate /></Professional></ProtectedRoute>} />
             <Route path="/radar" element={<Radar />} />
             <Route path="/ativo/:ticker" element={<AssetDetails />} />
             <Route path="/watchlist" element={<Watchlist />} />
@@ -89,30 +94,30 @@ function App() {
             <Route path="/macro" element={<MacroSignals />} />
             <Route path="/cadastro-escritorio" element={<RegisterOffice />} />
             <Route path="/convite/:token" element={<InvitePage />} />
-            <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ContactCenter /></ProtectedRoute>} />
-            <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><ContactCenter /></ProtectedRoute>} />
+            <Route path="/contato" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ContactCenter /></Professional></ProtectedRoute>} />
+            <Route path="/admin/contato" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><ContactCenter /></Professional></ProtectedRoute>} />
             <Route path="/admin/onboarding" element={<ProtectedRoute roles={['admin']}><OfficeOnboarding /></ProtectedRoute>} />
             <Route path="/admin/cobranca" element={<ProtectedRoute roles={['admin']}><Billing /></ProtectedRoute>} />
-            <Route path="/admin/automacoes" element={<ProtectedRoute roles={['admin']}><AutomationOps /></ProtectedRoute>} />
-            <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><ScheduledUpdates /></ProtectedRoute>} />
-            <Route path="/admin/status-dados" element={<ProtectedRoute roles={['admin', 'advisor']}><DataOperations /></ProtectedRoute>} />
-            <Route path="/assessor/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
-            <Route path="/admin/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorFollowUps /></ProtectedRoute>} />
+            <Route path="/admin/automacoes" element={<ProtectedRoute roles={['admin']}><Professional><AutomationOps /></Professional></ProtectedRoute>} />
+            <Route path="/admin/atualizacoes" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><ScheduledUpdatesHydrated /></Professional></ProtectedRoute>} />
+            <Route path="/admin/status-dados" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><DataOperations /></Professional></ProtectedRoute>} />
+            <Route path="/assessor/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdvisorFollowUps /></Professional></ProtectedRoute>} />
+            <Route path="/admin/acompanhamentos" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdvisorFollowUps /></Professional></ProtectedRoute>} />
             <Route path="/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FinancialCopilot /></ProtectedRoute>} />
-            <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><FinancialCopilot /></ProtectedRoute>} />
+            <Route path="/admin/ia-financeira" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><FinancialCopilot /></Professional></ProtectedRoute>} />
             <Route path="/meu-futuro" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FutureAI /></ProtectedRoute>} />
             <Route path="/futuro-ia" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><FutureAI /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ToolsHub /></ProtectedRoute>} />
-            <Route path="/admin/insights" element={<ProtectedRoute roles={['admin', 'advisor']}><ToolsHub /></ProtectedRoute>} />
-            <Route path="/white-label" element={<ProtectedRoute roles={['admin']}><WhiteLabelSettings /></ProtectedRoute>} />
-            <Route path="/assessor" element={<ProtectedRoute roles={['admin', 'advisor']}><AdvisorWorkspace /></ProtectedRoute>} />
-            <Route path="/cliente" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><ClientPortal /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/assessores" element={<ProtectedRoute roles={['admin']}><AdminAdvisors /></ProtectedRoute>} />
-            <Route path="/admin/clientes" element={<ProtectedRoute roles={['admin']}><AdminClients /></ProtectedRoute>} />
-            <Route path="/admin/relatorios" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminReports /></ProtectedRoute>} />
-            <Route path="/admin/conteudos" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminContents /></ProtectedRoute>} />
-            <Route path="/admin/fabrica-conteudo" element={<ProtectedRoute roles={['admin', 'advisor']}><AdminContentFactory /></ProtectedRoute>} />
+            <Route path="/admin/insights" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><ToolsHub /></Professional></ProtectedRoute>} />
+            <Route path="/white-label" element={<ProtectedRoute roles={['admin']}><Professional><WhiteLabelSettings /></Professional></ProtectedRoute>} />
+            <Route path="/assessor" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdvisorWorkspace /></Professional></ProtectedRoute>} />
+            <Route path="/cliente" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ClientPortal /></Professional></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute roles={['admin']}><Professional><AdminDashboard /></Professional></ProtectedRoute>} />
+            <Route path="/admin/assessores" element={<ProtectedRoute roles={['admin']}><Professional><AdminAdvisors /></Professional></ProtectedRoute>} />
+            <Route path="/admin/clientes" element={<ProtectedRoute roles={['admin']}><Professional><AdminClients /></Professional></ProtectedRoute>} />
+            <Route path="/admin/relatorios" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdminReports /></Professional></ProtectedRoute>} />
+            <Route path="/admin/conteudos" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdminContents /></Professional></ProtectedRoute>} />
+            <Route path="/admin/fabrica-conteudo" element={<ProtectedRoute roles={['admin', 'advisor']}><Professional><AdminContentFactory /></Professional></ProtectedRoute>} />
             <Route path="*" element={<Home />} />
           </Routes>
           <Toaster position="top-right" richColors />
