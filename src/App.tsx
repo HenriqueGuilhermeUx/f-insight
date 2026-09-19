@@ -18,7 +18,7 @@ import DemoExperience from './pages/DemoExperience';
 import LegalTerms from './pages/LegalTerms';
 import OfficeOnboarding from './pages/OfficeOnboarding';
 import PublicPortal from './pages/PublicPortal';
-import ClientApp from './pages/ClientApp';
+import ClientAppLiveGate from './pages/ClientAppLiveGate';
 import AutomationOps from './pages/AutomationOps';
 import Radar from './pages/Radar';
 import AssetDetails from './pages/AssetDetails';
@@ -83,8 +83,8 @@ function App() {
             <Route path="/aviso-educacional" element={<LegalTerms />} />
             <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/app" element={<ClientApp />} />
-            <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ClientApp /></Professional></ProtectedRoute>} />
+            <Route path="/app" element={<ClientAppLiveGate />} />
+            <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ClientAppLiveGate /></Professional></ProtectedRoute>} />
             <Route path="/radar" element={<Radar />} />
             <Route path="/ativo/:ticker" element={<AssetDetails />} />
             <Route path="/watchlist" element={<Watchlist />} />
