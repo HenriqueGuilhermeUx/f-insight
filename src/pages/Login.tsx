@@ -5,6 +5,8 @@ import { Layout } from '@/components/layout/Layout';
 import { AuthRole, useAuth } from '@/context/AuthContext';
 import { acceptProfessionalInvite } from '@/services/supabaseWorkspace';
 
+const PENDING_OFFICE_SETUP_KEY = 'finsight-pending-office-setup';
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,6 +15,7 @@ export default function Login() {
   const startsAsSignup = location.pathname.includes('cadastro') || params.get('mode') === 'signup';
   const confirmed = params.get('confirmed') === '1';
   const inviteToken = params.get('invite') || '';
+  const officeSetup = params.get('office') === '1' || localStorage.getItem(PENDING_OFFICE_SETUP_KEY) === '1';
   const [mode, setMode] = useState<'login' | 'signup'>(startsAsSignup ? 'signup' : 'login');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(confirmed ? 'E-mail confirmado. Agora você já pode entrar no F-Insight.' : '');
@@ -26,9 +29,10 @@ export default function Login() {
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
   const title = useMemo(() => {
+    if (officeSetup) return mode === 'signup' ? 'Crie sua conta para ativar seu escritório.' : 'Entre para ativar seu escritório.';
     if (mode === 'signup') return inviteToken ? 'Crie sua conta para aceitar o convite.' : 'Crie sua conta gratuita.';
     return inviteToken ? 'Entre para aceitar seu convite.' : 'Entre no F-Insight.';
-  }, [mode, inviteToken]);
+  }, [mode, inviteToken, officeSetup]);
 
   const changeMode = (nextMode: 'login' | 'signup') => {
     setMode(nextMode);
@@ -43,6 +47,13 @@ export default function Login() {
     return true;
   };
 
+  const finishOfficeSetup = () => {
+    if (!officeSetup) return false;
+    localStorage.removeItem(PENDING_OFFICE_SETUP_KEY);
+    navigate('/cadastro-escritorio');
+    return true;
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
@@ -53,6 +64,7 @@ export default function Login() {
       if (mode === 'login') {
         const user = await signInWithPassword(form.email, form.password);
         if (await finishInvite()) return;
+        if (finishOfficeSetup()) return;
         navigate(routeForRole(user.role));
         return;
       }
@@ -65,15 +77,19 @@ export default function Login() {
       });
 
       if (result.confirmationRequired) {
+        if (officeSetup) localStorage.setItem(PENDING_OFFICE_SETUP_KEY, '1');
         setMessageType('success');
         setMessage(inviteToken
           ? 'Conta criada. Confirme seu e-mail e depois abra novamente este link de convite para ativar o acesso.'
-          : 'Conta criada. Enviamos um e-mail de confirmação. Confirme seu endereço e depois volte para fazer login.');
+          : officeSetup
+            ? 'Conta criada. Confirme seu e-mail e depois faça login; o F-Insight retomará automaticamente a ativação do escritório neste navegador.'
+            : 'Conta criada. Enviamos um e-mail de confirmação. Confirme seu endereço e depois volte para fazer login.');
         return;
       }
 
       if (result.user) {
         if (await finishInvite()) return;
+        if (finishOfficeSetup()) return;
         navigate(routeForRole(result.user.role));
       }
     } catch (error) {
@@ -120,13 +136,15 @@ export default function Login() {
           <div>
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-200">
               <Sparkles className="h-3.5 w-3.5" />
-              {inviteToken ? 'Convite F-Insight Professional' : 'Conta gratuita para investidores'}
+              {inviteToken ? 'Convite F-Insight Professional' : officeSetup ? 'Ativação F-Insight Professional' : 'Conta gratuita para investidores'}
             </span>
             <h1 className="mb-4 text-3xl font-black tracking-tight text-white lg:text-5xl">{title}</h1>
             <p className="max-w-4xl text-lg leading-relaxed text-slate-300">
               {inviteToken
                 ? 'Use exatamente o e-mail que recebeu o convite. Depois da validação, o acesso institucional é ativado no tenant correto.'
-                : 'A conta gratuita é para qualquer investidor acompanhar mercado, radar, macro, notícias e ferramentas educativas. A área de assessores e escritórios fica separada, sem confundir sua experiência.'}
+                : officeSetup
+                  ? 'Autentique sua conta antes de criar o tenant do escritório. Depois do login, você volta automaticamente para a ativação white-label.'
+                  : 'A conta gratuita é para qualquer investidor acompanhar mercado, radar, macro, notícias e ferramentas educativas. A área de assessores e escritórios fica separada, sem confundir sua experiência.'}
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 lg:min-w-[300px]">
