@@ -11,8 +11,13 @@ const publishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.
 const email = 'finsight-e2e-20260918-authprobe@example.com';
 const password = `E2E-${crypto.randomBytes(18).toString('base64url')}aA7!`;
 
+function page(name) {
+  fs.writeFileSync(`dist/${name}.html`, '<!doctype html><meta charset="utf-8"><title>F-Insight auth probe</title><p>probe outcome recorded</p>');
+}
+
 if (!supabaseUrl || !publishableKey) {
-  throw new Error('Netlify deploy preview is missing Supabase public auth variables.');
+  page('probe-missing-env');
+  process.exit(1);
 }
 
 const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/signup`, {
@@ -30,19 +35,19 @@ const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/signup`,
 
 const body = await response.json().catch(() => ({}));
 if (!response.ok) {
-  throw new Error(`Live Supabase signup failed with HTTP ${response.status}: ${body?.msg || body?.message || body?.error || 'unknown error'}`);
+  page(`probe-http-${response.status}`);
+  process.exit(1);
 }
 if (!body?.user?.id) {
-  throw new Error('Live Supabase signup did not return a user id.');
+  page('probe-no-user');
+  process.exit(1);
 }
 
-const result = {
+page(body.access_token ? 'probe-success-session' : 'probe-success-confirmation-required');
+fs.writeFileSync('dist/auth-live-probe.json', JSON.stringify({
   ok: true,
   userId: body.user.id,
   email,
   sessionPresent: Boolean(body.access_token),
   emailConfirmedAt: body.user.email_confirmed_at || null,
-};
-
-fs.writeFileSync('dist/auth-live-probe.json', JSON.stringify(result, null, 2));
-console.log(`Auth live probe succeeded. Session present: ${result.sessionPresent}; confirmed: ${Boolean(result.emailConfirmedAt)}`);
+}, null, 2));
