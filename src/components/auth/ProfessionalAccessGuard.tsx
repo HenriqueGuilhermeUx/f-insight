@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { CreditCard, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/context/AuthContext';
@@ -86,8 +86,14 @@ export default function ProfessionalAccessGuard({ children }: { children: ReactN
     );
   }
 
-  // Conta individual ou modo demo: este guard não interfere.
-  if (!hasTenant || user?.isDemo || !office || office.active) return <>{children}</>;
+  if (user?.isDemo) return <>{children}</>;
+
+  if (!hasTenant) {
+    return <Navigate to={user?.role === 'client' ? '/app' : '/cadastro-escritorio'} replace />;
+  }
+
+  // Falha temporária do endpoint de entitlement não derruba o workspace.
+  if (!office || office.active) return <>{children}</>;
 
   const expiresAt = office.expiresAt
     ? new Date(office.expiresAt).toLocaleDateString('pt-BR')
