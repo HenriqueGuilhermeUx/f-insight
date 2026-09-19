@@ -1,11 +1,14 @@
 import { FormEvent, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Building2, CheckCircle2, Palette, Rocket, Shield } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { Layout, PageLoader } from '@/components/layout/Layout';
 import { registerTenant } from '@/services/workspace';
 import { useTenant, defaultTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RegisterOffice() {
   const { saveTenant } = useTenant();
+  const { user, loading: authLoading, routeForRole } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
@@ -45,6 +48,11 @@ export default function RegisterOffice() {
       setLoading(false);
     }
   };
+
+  if (authLoading) return <PageLoader />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.isDemo) return <Navigate to="/area-logada" replace />;
+  if (user.role !== 'client') return <Navigate to={routeForRole(user.role)} replace />;
 
   return (
     <Layout>
@@ -99,8 +107,9 @@ export default function RegisterOffice() {
                 <input required value={form.ownerName} onChange={(e) => update('ownerName', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
               <label className="block">
-                <span className="text-sm text-slate-400 mb-2 block">E-mail do admin</span>
-                <input required type="email" value={form.ownerEmail} onChange={(e) => update('ownerEmail', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <span className="text-sm text-slate-400 mb-2 block">E-mail administrativo</span>
+                <input required type="email" value={form.ownerEmail} onChange={(e) => update('ownerEmail', e.target.value)} placeholder={user.email} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <span className="mt-1 block text-xs text-slate-500">O usuário administrador autenticado é {user.email}.</span>
               </label>
             </div>
           </div>
