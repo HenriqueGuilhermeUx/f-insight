@@ -1,19 +1,19 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Building2, CheckCircle2, Palette, Rocket, Shield } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { registerTenant } from '@/services/workspace';
 import { useTenant, defaultTenant } from '@/context/TenantContext';
 
 export default function RegisterOffice() {
-  const navigate = useNavigate();
   const { saveTenant } = useTenant();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
-    name: 'Alpha Investimentos',
-    brandName: 'Alpha Investimentos',
+    name: '',
+    brandName: '',
     cnpj: '',
-    ownerName: 'Henrique Campos',
-    ownerEmail: 'contato@alphainvest.com.br',
+    ownerName: '',
+    ownerEmail: '',
     phone: '',
     primaryColor: '#22d3ee',
     secondaryColor: '#10b981',
@@ -25,17 +25,25 @@ export default function RegisterOffice() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const { tenant } = registerTenant(form);
-    await saveTenant({
-      ...defaultTenant,
-      tenantId: tenant.id,
-      tenantName: tenant.name,
-      brandName: tenant.brandName,
-      primaryColor: tenant.primaryColor,
-      secondaryColor: tenant.secondaryColor,
-      logoDataUrl: tenant.logoDataUrl || '',
-    });
-    navigate('/admin');
+    setLoading(true);
+    setError('');
+    try {
+      const { tenant } = await registerTenant(form);
+      await saveTenant({
+        ...defaultTenant,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        brandName: tenant.brandName,
+        primaryColor: tenant.primaryColor,
+        secondaryColor: tenant.secondaryColor,
+        logoDataUrl: tenant.logoDataUrl || '',
+      });
+      window.location.assign('/admin');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível criar o escritório.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,13 +59,13 @@ export default function RegisterOffice() {
               Cadastre o escritório e comece a operar o portal.
             </h1>
             <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
-              Este fluxo cria a conta do escritório, ativa a marca inicial e libera o painel administrativo para cadastrar assessores, clientes e conteúdos.
+              Este fluxo cria o tenant real do escritório, ativa a marca inicial e libera o painel administrativo para cadastrar assessores, clientes e conteúdos.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-700/40 bg-slate-950/70 p-5 min-w-[280px]">
             <Shield className="w-6 h-6 text-emerald-400 mb-3" />
-            <h3 className="font-bold text-white mb-2">MVP seguro</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">Sem custódia, sem saldos e sem posição real do cliente final nesta fase.</p>
+            <h3 className="font-bold text-white mb-2">Workspace isolado</h3>
+            <p className="text-sm text-slate-400 leading-relaxed">Cada escritório recebe um tenant próprio, com acesso separado por usuário e RLS no banco.</p>
           </div>
         </div>
       </section>
@@ -72,15 +80,15 @@ export default function RegisterOffice() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Nome jurídico/comercial</span>
-                <input value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <input required value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Nome no portal do cliente</span>
-                <input value={form.brandName} onChange={(e) => update('brandName', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <input required value={form.brandName} onChange={(e) => update('brandName', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">CNPJ</span>
-                <input value={form.cnpj} onChange={(e) => update('cnpj', e.target.value)} placeholder="opcional no MVP" className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <input value={form.cnpj} onChange={(e) => update('cnpj', e.target.value)} placeholder="opcional" className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Telefone</span>
@@ -88,11 +96,11 @@ export default function RegisterOffice() {
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">Responsável</span>
-                <input value={form.ownerName} onChange={(e) => update('ownerName', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <input required value={form.ownerName} onChange={(e) => update('ownerName', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
               <label className="block">
                 <span className="text-sm text-slate-400 mb-2 block">E-mail do admin</span>
-                <input type="email" value={form.ownerEmail} onChange={(e) => update('ownerEmail', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+                <input required type="email" value={form.ownerEmail} onChange={(e) => update('ownerEmail', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
               </label>
             </div>
           </div>
@@ -120,9 +128,11 @@ export default function RegisterOffice() {
             </div>
           </div>
 
-          <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+          {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+
+          <button disabled={loading} type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
             <CheckCircle2 className="w-4 h-4" />
-            Criar escritório e abrir admin
+            {loading ? 'Criando workspace...' : 'Criar escritório e abrir admin'}
           </button>
         </section>
 
@@ -130,9 +140,9 @@ export default function RegisterOffice() {
           <p className="text-sm text-slate-400 mb-2">Prévia</p>
           <div className="rounded-2xl border border-slate-700/40 bg-slate-950/60 p-5" style={{ background: `linear-gradient(135deg, ${form.primaryColor}22, transparent 45%, ${form.secondaryColor}18)` }}>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black mb-4" style={{ background: `linear-gradient(135deg, ${form.primaryColor}, ${form.secondaryColor})` }}>
-              {form.brandName.slice(0, 1)}
+              {(form.brandName || 'F').slice(0, 1)}
             </div>
-            <h3 className="text-xl font-black text-white">{form.brandName}</h3>
+            <h3 className="text-xl font-black text-white">{form.brandName || 'Seu escritório'}</h3>
             <p className="text-sm text-slate-400 mt-2">Portal de inteligência educacional para clientes, assessores e escritório.</p>
           </div>
         </aside>
