@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Briefcase, Building2, CheckCircle2, Lock, LogIn, Shield, Sparkles, UserRound } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { AuthRole, useAuth } from '@/context/AuthContext';
+import { acceptProfessionalInvite } from '@/services/supabaseWorkspace';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function Login() {
   const params = new URLSearchParams(location.search);
   const startsAsSignup = location.pathname.includes('cadastro') || params.get('mode') === 'signup';
   const confirmed = params.get('confirmed') === '1';
+  const inviteToken = params.get('invite') || '';
   const [mode, setMode] = useState<'login' | 'signup'>(startsAsSignup ? 'signup' : 'login');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(confirmed ? 'E-mail confirmado. Agora você já pode entrar no F-Insight.' : '');
@@ -24,14 +26,21 @@ export default function Login() {
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
   const title = useMemo(() => {
-    if (mode === 'signup') return 'Crie sua conta gratuita.';
-    return 'Entre no F-Insight.';
-  }, [mode]);
+    if (mode === 'signup') return inviteToken ? 'Crie sua conta para aceitar o convite.' : 'Crie sua conta gratuita.';
+    return inviteToken ? 'Entre para aceitar seu convite.' : 'Entre no F-Insight.';
+  }, [mode, inviteToken]);
 
   const changeMode = (nextMode: 'login' | 'signup') => {
     setMode(nextMode);
     setMessage('');
     setMessageType('error');
+  };
+
+  const finishInvite = async () => {
+    if (!inviteToken) return false;
+    const accepted = await acceptProfessionalInvite(inviteToken);
+    window.location.assign(accepted.role === 'advisor' ? '/assessor' : '/cliente');
+    return true;
   };
 
   const submit = async (event: FormEvent) => {
@@ -43,6 +52,7 @@ export default function Login() {
     try {
       if (mode === 'login') {
         const user = await signInWithPassword(form.email, form.password);
+        if (await finishInvite()) return;
         navigate(routeForRole(user.role));
         return;
       }
@@ -56,24 +66,31 @@ export default function Login() {
 
       if (result.confirmationRequired) {
         setMessageType('success');
-        setMessage('Conta criada. Enviamos um e-mail de confirmação. Confirme seu endereço e depois volte para fazer login.');
+        setMessage(inviteToken
+          ? 'Conta criada. Confirme seu e-mail e depois abra novamente este link de convite para ativar o acesso.'
+          : 'Conta criada. Enviamos um e-mail de confirmação. Confirme seu endereço e depois volte para fazer login.');
         return;
       }
 
       if (result.user) {
+        if (await finishInvite()) return;
         navigate(routeForRole(result.user.role));
       }
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : 'Falha ao autenticar.';
       const normalizedMessage = rawMessage.toLowerCase();
-      const friendly = normalizedMessage.includes('email rate limit') ||
-        normalizedMessage.includes('rate limit') ||
-        normalizedMessage.includes('too many requests') ||
-        normalizedMessage.includes('over_email_send_rate_limit')
-        ? 'O serviço de autenticação recebeu muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.'
-        : normalizedMessage.includes('failed to fetch')
-          ? 'Não conseguimos conectar ao login online agora. Tente novamente em instantes.'
-          : rawMessage;
+      const friendly = normalizedMessage.includes('invite email mismatch')
+        ? 'Este convite foi emitido para outro e-mail. Entre com a conta que recebeu o convite.'
+        : normalizedMessage.includes('invite invalid or expired')
+          ? 'Este convite é inválido, expirou ou já foi utilizado.'
+          : normalizedMessage.includes('email rate limit') ||
+            normalizedMessage.includes('rate limit') ||
+            normalizedMessage.includes('too many requests') ||
+            normalizedMessage.includes('over_email_send_rate_limit')
+            ? 'O serviço de autenticação recebeu muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.'
+            : normalizedMessage.includes('failed to fetch')
+              ? 'Não conseguimos conectar ao login online agora. Tente novamente em instantes.'
+              : rawMessage;
       setMessageType('error');
       setMessage(friendly);
     } finally {
@@ -103,11 +120,13 @@ export default function Login() {
           <div>
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-200">
               <Sparkles className="h-3.5 w-3.5" />
-              Conta gratuita para investidores
+              {inviteToken ? 'Convite F-Insight Professional' : 'Conta gratuita para investidores'}
             </span>
             <h1 className="mb-4 text-3xl font-black tracking-tight text-white lg:text-5xl">{title}</h1>
             <p className="max-w-4xl text-lg leading-relaxed text-slate-300">
-              A conta gratuita é para qualquer investidor acompanhar mercado, radar, macro, notícias e ferramentas educativas. A área de assessores e escritórios fica separada, sem confundir sua experiência.
+              {inviteToken
+                ? 'Use exatamente o e-mail que recebeu o convite. Depois da validação, o acesso institucional é ativado no tenant correto.'
+                : 'A conta gratuita é para qualquer investidor acompanhar mercado, radar, macro, notícias e ferramentas educativas. A área de assessores e escritórios fica separada, sem confundir sua experiência.'}
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 lg:min-w-[300px]">
