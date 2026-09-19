@@ -18,6 +18,8 @@ export default function AdminClients() {
   const initialStats = getWorkspaceStats();
   const [clients, setClients] = useState(initialStats.clients);
   const [copiedToken, setCopiedToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<ClientFormState>({
     name: '',
     email: '',
@@ -38,22 +40,30 @@ export default function AdminClients() {
     update('interests', exists ? form.interests.filter((value) => value !== item) : [...form.interests, item]);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const workspace = getWorkspace();
-    const advisorId = workspace.activeAdvisorId || advisors[0]?.id || 'advisor_demo';
-    const client = addClient({
-      tenantId: workspace.activeTenantId,
-      advisorId,
-      name: form.name || 'Novo Cliente',
-      email: form.email || 'cliente@email.com',
-      phone: form.phone,
-      profile: form.profile,
-      educationLevel: form.educationLevel,
-      interests: form.interests,
-    });
-    setClients((current) => [client, ...current]);
-    setForm({ name: '', email: '', phone: '', profile: 'moderado', educationLevel: 'intermediario', interests: ['Juros', 'Valuation'] });
+    setLoading(true);
+    setError('');
+    try {
+      const workspace = getWorkspace();
+      const advisorId = workspace.activeAdvisorId || advisors[0]?.id || '';
+      const client = await addClient({
+        tenantId: workspace.activeTenantId,
+        advisorId,
+        name: form.name || 'Novo Cliente',
+        email: form.email,
+        phone: form.phone,
+        profile: form.profile,
+        educationLevel: form.educationLevel,
+        interests: form.interests,
+      });
+      setClients((current) => [client, ...current]);
+      setForm({ name: '', email: '', phone: '', profile: 'moderado', educationLevel: 'intermediario', interests: ['Juros', 'Valuation'] });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível cadastrar o cliente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const copyInvite = async (token: string) => {
@@ -71,7 +81,7 @@ export default function AdminClients() {
           Clientes finais
         </span>
         <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">Convide clientes para o portal educacional.</h1>
-        <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">Cada cliente recebe uma área com relatórios, conteúdos e perguntas liberadas pelo escritório, sem exibir saldos ou posição real.</p>
+        <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">Cada cliente recebe um convite persistente e uma área com relatórios, conteúdos e perguntas liberadas pelo escritório, sem exibir saldos ou posição real.</p>
       </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-[440px_1fr] gap-6">
@@ -83,11 +93,11 @@ export default function AdminClients() {
           <div className="space-y-4">
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Nome</span>
-              <input value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required value={form.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">E-mail</span>
-              <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
+              <input required type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className="w-full rounded-xl border border-slate-700/50 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-primary/50" />
             </label>
             <label className="block">
               <span className="text-sm text-slate-400 mb-2 block">Telefone</span>
@@ -121,9 +131,10 @@ export default function AdminClients() {
                 ))}
               </div>
             </div>
-            <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+            <button disabled={loading} className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors disabled:opacity-60">
               <Plus className="w-4 h-4" />
-              Criar cliente e gerar convite
+              {loading ? 'Criando convite...' : 'Criar cliente e gerar convite'}
             </button>
           </div>
         </form>
@@ -140,13 +151,15 @@ export default function AdminClients() {
                     <p className="text-xs text-primary mt-1 flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{client.email}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => copyInvite(client.inviteToken)} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 border border-slate-700/50 hover:border-primary/40 transition-colors">
-                      <Copy className="w-3.5 h-3.5" />
-                      {copiedToken === client.inviteToken ? 'Copiado' : 'Copiar convite'}
-                    </button>
+                    {client.inviteToken && (
+                      <button onClick={() => copyInvite(client.inviteToken)} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 border border-slate-700/50 hover:border-primary/40 transition-colors">
+                        <Copy className="w-3.5 h-3.5" />
+                        {copiedToken === client.inviteToken ? 'Copiado' : 'Copiar convite'}
+                      </button>
+                    )}
                     <span className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-xs font-bold text-primary border border-primary/20">
                       <Send className="w-3.5 h-3.5" />
-                      {client.inviteToken}
+                      {client.status === 'ativo' ? 'Ativo' : 'Convite pendente'}
                     </span>
                   </div>
                 </div>
