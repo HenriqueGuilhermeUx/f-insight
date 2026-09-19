@@ -3,6 +3,7 @@ import { CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, QrCode, ShieldCh
 import { Layout } from '@/components/layout/Layout';
 import API_ENDPOINTS from '@/config/api';
 import { getWorkspaceStats } from '@/services/workspace';
+import { supabase } from '@/lib/supabase';
 
 type PlanId = 'basic' | 'pro' | 'premium';
 
@@ -68,11 +69,18 @@ export default function Billing() {
     setLoading(true);
     setInvoice(null);
     try {
+      const { data, error } = await supabase!.auth.getSession();
+      if (error || !data.session?.access_token) {
+        throw new Error('Sua sessão expirou. Entre novamente para gerar a cobrança do escritório.');
+      }
+
       const response = await fetch(API_ENDPOINTS.billing.checkout, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
         body: JSON.stringify({
-          tenantId: stats.tenant?.id,
           planId: selectedPlan,
           customerName,
           customerEmail,
@@ -80,7 +88,7 @@ export default function Billing() {
         }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.message || 'Falha ao gerar cobrança');
+      if (!response.ok) throw new Error(payload?.message || payload?.error || 'Falha ao gerar cobrança');
       setDemoMode(Boolean(payload.demoMode));
       setInvoice(payload.invoice);
     } catch (error) {
