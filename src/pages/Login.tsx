@@ -65,9 +65,15 @@ export default function Login() {
       }
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : 'Falha ao autenticar.';
-      const friendly = rawMessage.toLowerCase().includes('failed to fetch')
-        ? 'Não conseguimos conectar ao login online agora. Tente novamente em instantes.'
-        : rawMessage;
+      const normalizedMessage = rawMessage.toLowerCase();
+      const friendly = normalizedMessage.includes('email rate limit') ||
+        normalizedMessage.includes('rate limit') ||
+        normalizedMessage.includes('too many requests') ||
+        normalizedMessage.includes('over_email_send_rate_limit')
+        ? 'O serviço de autenticação recebeu muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.'
+        : normalizedMessage.includes('failed to fetch')
+          ? 'Não conseguimos conectar ao login online agora. Tente novamente em instantes.'
+          : rawMessage;
       setMessageType('error');
       setMessage(friendly);
     } finally {
