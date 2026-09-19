@@ -1,4 +1,5 @@
 import {
+  loadWorkspaceFromSupabase,
   syncAdvisorToSupabase,
   syncClientToSupabase,
   syncContentToSupabase,
@@ -259,7 +260,14 @@ export function saveWorkspace(workspace: WorkspaceState) {
   return workspace;
 }
 
-export function registerTenant(input: Partial<WorkspaceTenant>) {
+export async function hydrateWorkspaceFromSupabase() {
+  const remote = await loadWorkspaceFromSupabase();
+  if (!remote) return null;
+  saveWorkspace(remote);
+  return remote;
+}
+
+export async function registerTenant(input: Partial<WorkspaceTenant>) {
   const workspace = getWorkspace();
   const tenant: WorkspaceTenant = {
     id: makeId('tenant'),
@@ -286,16 +294,27 @@ export function registerTenant(input: Partial<WorkspaceTenant>) {
     createdAt: now(),
   };
 
-  workspace.tenants.push(tenant);
-  workspace.advisors.push(advisor);
-  workspace.activeTenantId = tenant.id;
-  workspace.activeAdvisorId = advisor.id;
-  saveWorkspace(workspace);
-  void syncTenantToSupabase(tenant, advisor);
-  return { workspace, tenant, advisor };
+  const remote = await syncTenantToSupabase(tenant, advisor);
+  if (remote) {
+    tenant.id = remote.tenantId;
+    advisor.id = remote.advisorId;
+    advisor.tenantId = remote.tenantId;
+  }
+
+  const cleanWorkspace = workspace.activeTenantId === 'tenant_demo'
+    ? { ...workspace, tenants: [], advisors: [], clients: [], reports: [], contents: [] }
+    : workspace;
+
+  cleanWorkspace.tenants.push(tenant);
+  cleanWorkspace.advisors.push(advisor);
+  cleanWorkspace.activeTenantId = tenant.id;
+  cleanWorkspace.activeAdvisorId = advisor.id;
+  cleanWorkspace.activeClientId = '';
+  saveWorkspace(cleanWorkspace);
+  return { workspace: cleanWorkspace, tenant, advisor };
 }
 
-export function addAdvisor(input: Omit<WorkspaceAdvisor, 'id' | 'createdAt' | 'status'>) {
+export async function addAdvisor(input: Omit<WorkspaceAdvisor, 'id' | 'createdAt' | 'status'>) {
   const workspace = getWorkspace();
   const advisor: WorkspaceAdvisor = {
     ...input,
@@ -303,13 +322,16 @@ export function addAdvisor(input: Omit<WorkspaceAdvisor, 'id' | 'createdAt' | 's
     status: 'convite_enviado',
     createdAt: now(),
   };
-  workspace.advisors.push(advisor);
+
+  const remote = await syncAdvisorToSupabase(advisor);
+  if (remote) advisor.id = remote.advisorId;
+
+  workspace.advisors.unshift(advisor);
   saveWorkspace(workspace);
-  void syncAdvisorToSupabase(advisor);
   return advisor;
 }
 
-export function addClient(input: Omit<WorkspaceClient, 'id' | 'createdAt' | 'status' | 'inviteToken'>) {
+export async function addClient(input: Omit<WorkspaceClient, 'id' | 'createdAt' | 'status' | 'inviteToken'>) {
   const workspace = getWorkspace();
   const client: WorkspaceClient = {
     ...input,
@@ -318,27 +340,36 @@ export function addClient(input: Omit<WorkspaceClient, 'id' | 'createdAt' | 'sta
     inviteToken: makeInviteToken(),
     createdAt: now(),
   };
-  workspace.clients.push(client);
+
+  const remote = await syncClientToSupabase(client);
+  if (remote) {
+    client.id = remote.clientId;
+    client.inviteToken = remote.inviteToken;
+  }
+
+  workspace.clients.unshift(client);
   workspace.activeClientId = client.id;
   saveWorkspace(workspace);
-  void syncClientToSupabase(client);
   return client;
 }
 
-export function publishReport(input: Omit<WorkspaceReport, 'id' | 'createdAt'>) {
+export async function publishReport(input: Omit<WorkspaceReport, 'id' | 'createdAt'>) {
   const workspace = getWorkspace();
   const report: WorkspaceReport = {
     ...input,
     id: makeId('report'),
     createdAt: now(),
   };
+
+  const remote = await syncReportToSupabase(report);
+  if (remote) report.id = remote.reportId;
+
   workspace.reports.unshift(report);
   saveWorkspace(workspace);
-  void syncReportToSupabase(report);
   return report;
 }
 
-export function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt' | 'publishedAt'>) {
+export async function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt' | 'publishedAt'>) {
   const workspace = getWorkspace();
   const status = input.status || 'published';
   const content: WorkspaceContent = {
@@ -349,9 +380,12 @@ export function publishContent(input: Omit<WorkspaceContent, 'id' | 'createdAt' 
     publishedAt: status === 'published' ? now() : undefined,
     createdAt: now(),
   };
+
+  const remote = await syncContentToSupabase(content);
+  if (remote) content.id = remote.contentId;
+
   workspace.contents.unshift(content);
   saveWorkspace(workspace);
-  void syncContentToSupabase(content);
   return content;
 }
 
