@@ -33,6 +33,14 @@ interface LiveIndicator {
   fetchedAt?: string;
 }
 
+interface LivePayload {
+  source?: string;
+  data?: LiveIndicator[];
+  dataUpdatedAt?: string | null;
+  responseAt?: string | null;
+  dataAgeSeconds?: number | null;
+}
+
 export const ASSET_CATALOG: AssetCatalogEntry[] = [
   { ticker: 'PETR4', providerSymbol: 'PETR4.SA', name: 'Petrobras PN', type: 'stock', currency: 'BRL', market: 'br', sector: 'Energia', country: 'BR' },
   { ticker: 'VALE3', providerSymbol: 'VALE3.SA', name: 'Vale ON', type: 'stock', currency: 'BRL', market: 'br', sector: 'Mineração', country: 'BR' },
@@ -41,7 +49,6 @@ export const ASSET_CATALOG: AssetCatalogEntry[] = [
   { ticker: 'WEGE3', providerSymbol: 'WEGE3.SA', name: 'WEG ON', type: 'stock', currency: 'BRL', market: 'br', sector: 'Industrial', country: 'BR' },
   { ticker: 'IVVB11', providerSymbol: 'IVVB11.SA', name: 'iShares S&P 500', type: 'etf', currency: 'BRL', market: 'br', sector: 'ETF', country: 'BR' },
   { ticker: 'HGLG11', providerSymbol: 'HGLG11.SA', name: 'CSHG Logística FII', type: 'fii', currency: 'BRL', market: 'br', sector: 'FII', country: 'BR' },
-
   { ticker: 'AAPL', providerSymbol: 'AAPL', name: 'Apple Inc.', type: 'stock', currency: 'USD', market: 'us', sector: 'Technology', country: 'US' },
   { ticker: 'MSFT', providerSymbol: 'MSFT', name: 'Microsoft Corp.', type: 'stock', currency: 'USD', market: 'us', sector: 'Technology', country: 'US' },
   { ticker: 'GOOGL', providerSymbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', currency: 'USD', market: 'us', sector: 'Technology', country: 'US' },
@@ -49,7 +56,6 @@ export const ASSET_CATALOG: AssetCatalogEntry[] = [
   { ticker: 'NVDA', providerSymbol: 'NVDA', name: 'NVIDIA Corp.', type: 'stock', currency: 'USD', market: 'us', sector: 'Technology', country: 'US' },
   { ticker: 'TSLA', providerSymbol: 'TSLA', name: 'Tesla Inc.', type: 'stock', currency: 'USD', market: 'us', sector: 'Automotive', country: 'US' },
   { ticker: 'META', providerSymbol: 'META', name: 'Meta Platforms', type: 'stock', currency: 'USD', market: 'us', sector: 'Technology', country: 'US' },
-
   { ticker: 'BTC', providerSymbol: 'BTC-USD', name: 'Bitcoin', type: 'crypto', currency: 'USD', market: 'crypto', country: 'GLOBAL' },
   { ticker: 'ETH', providerSymbol: 'ETH-USD', name: 'Ethereum', type: 'crypto', currency: 'USD', market: 'crypto', country: 'GLOBAL' },
   { ticker: 'SOL', providerSymbol: 'SOL-USD', name: 'Solana', type: 'crypto', currency: 'USD', market: 'crypto', country: 'GLOBAL' },
@@ -67,7 +73,6 @@ export function catalogEntry(ticker: string) {
 export function searchAssetCatalog(query: string, market?: MarketGroup) {
   const normalized = query.trim().toLowerCase();
   if (normalized.length < 2) return [];
-
   return ASSET_CATALOG
     .filter((item) => !market || item.market === market)
     .filter((item) => item.ticker.toLowerCase().includes(normalized) || item.name.toLowerCase().includes(normalized))
@@ -78,7 +83,6 @@ function inferEntry(ticker: string): AssetCatalogEntry {
   const normalized = String(ticker || '').replace(/\.SA$/i, '').toUpperCase();
   const known = catalogEntry(normalized);
   if (known) return known;
-
   const looksBrazilian = /\d{1,2}$/.test(normalized);
   return {
     ticker: normalized,
@@ -116,24 +120,21 @@ export async function fetchLiveAssetSnapshots(tickers: string[]): Promise<{
     return [meta.ticker, meta] as const;
   })).values()];
 
-  if (metas.length === 0) {
-    return { snapshots: [], source: 'empty', updatedAt: null };
-  }
+  if (metas.length === 0) return { snapshots: [], source: 'empty', updatedAt: null };
 
   const providerSymbols = metas.map((item) => item.providerSymbol);
   const url = `${API_ENDPOINTS.live.indicators}?symbols=${encodeURIComponent(providerSymbols.join(','))}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Live market unavailable (${response.status})`);
 
-  const payload = await response.json();
-  const rows: LiveIndicator[] = Array.isArray(payload?.data) ? payload.data : [];
+  const payload = await response.json() as LivePayload;
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
   const bySymbol = new Map(rows.map((row) => [String(row.symbol || '').toUpperCase(), row]));
 
   const snapshots = metas.map((meta) => {
     const row = bySymbol.get(meta.providerSymbol.toUpperCase());
     const lastPrice = Number(row?.lastPrice || 0);
     const dataAvailable = Number.isFinite(lastPrice) && lastPrice > 0;
-
     return {
       asset: dataAvailable
         ? {
@@ -151,16 +152,16 @@ export async function fetchLiveAssetSnapshots(tickers: string[]): Promise<{
     } satisfies LiveAssetSnapshot;
   });
 
-  const latestTimestamp = snapshots
+  const latestRowTimestamp = snapshots
     .map((item) => item.fetchedAt)
     .filter((value): value is string => Boolean(value))
     .sort()
-    .at(-1) || payload?.updatedAt || null;
+    .at(-1) || null;
 
   return {
     snapshots,
     source: String(payload?.source || 'live-api'),
-    updatedAt: latestTimestamp,
+    updatedAt: latestRowTimestamp || payload?.dataUpdatedAt || null,
   };
 }
 
