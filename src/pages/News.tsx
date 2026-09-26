@@ -1,32 +1,16 @@
-import { useState, useEffect } from 'react';
-import {
-  Newspaper,
-  Search,
-  Tag,
-  TrendingUp,
-  Wifi,
-  WifiOff,
-} from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Newspaper, Search, Tag, Wifi, WifiOff } from 'lucide-react';
 import { cn, getRelativeTime } from '@/lib/utils';
-import { mockData } from '@/services/marketData';
 import { Layout } from '@/components/layout/Layout';
 import API_ENDPOINTS from '@/config/api';
 import { NewsItem } from '@/types';
 
-type FeedMode = 'live' | 'demo';
+type FeedMode = 'live' | 'unavailable';
 
 function NewsCard({ news, featured = false }: { news: NewsItem; featured?: boolean }) {
-  return (
-    <a
-      href={news.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn(
-        'block bg-slate-800/40 hover:bg-slate-800/70 rounded-xl overflow-hidden border border-slate-700/40 transition-all group',
-        featured && 'md:col-span-2 md:row-span-2',
-        'hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5'
-      )}
-    >
+  const hasUrl = Boolean(news.url && news.url !== '#');
+  const content = (
+    <>
       {news.image && (
         <div className="bg-slate-800 overflow-hidden aspect-video">
           <img src={news.image} alt={news.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -34,8 +18,8 @@ function NewsCard({ news, featured = false }: { news: NewsItem; featured?: boole
       )}
       <div className={cn('p-4', featured && 'p-6')}>
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded font-medium">{news.source}</span>
-          <span className="text-xs text-slate-500">{getRelativeTime(news.publishedAt)}</span>
+          <span className="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded font-medium">{news.source || 'Fonte não informada'}</span>
+          {news.publishedAt && <span className="text-xs text-slate-500">{getRelativeTime(news.publishedAt)}</span>}
           {news.sentiment && (
             <span className={cn(
               'text-xs px-2 py-0.5 rounded font-medium',
@@ -43,7 +27,7 @@ function NewsCard({ news, featured = false }: { news: NewsItem; featured?: boole
               news.sentiment === 'negative' ? 'bg-red-500/20 text-red-400' :
               'bg-amber-500/20 text-amber-400'
             )}>
-              {news.sentiment === 'positive' ? '↑ Alta' : news.sentiment === 'negative' ? '↓ Baixa' : '→ Neutro'}
+              {news.sentiment === 'positive' ? 'Tom positivo' : news.sentiment === 'negative' ? 'Tom negativo' : 'Tom neutro'}
             </span>
           )}
         </div>
@@ -62,7 +46,19 @@ function NewsCard({ news, featured = false }: { news: NewsItem; featured?: boole
           </div>
         )}
       </div>
-    </a>
+    </>
+  );
+
+  const classes = cn(
+    'block bg-slate-800/40 rounded-xl overflow-hidden border border-slate-700/40 transition-all group',
+    featured && 'md:col-span-2 md:row-span-2',
+    hasUrl && 'hover:bg-slate-800/70 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5'
+  );
+
+  return hasUrl ? (
+    <a href={news.url} target="_blank" rel="noopener noreferrer" className={classes}>{content}</a>
+  ) : (
+    <article className={classes}>{content}</article>
   );
 }
 
@@ -99,28 +95,35 @@ export default function News() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [feedMode, setFeedMode] = useState<FeedMode>('demo');
+  const [feedMode, setFeedMode] = useState<FeedMode>('unavailable');
   const [checkedAt, setCheckedAt] = useState('');
 
   useEffect(() => {
+    let active = true;
     const loadNews = async () => {
       setLoading(true);
       setCheckedAt(new Date().toISOString());
       try {
         const response = await fetch(API_ENDPOINTS.news.list);
         if (!response.ok) throw new Error('News API unavailable');
-        const data = await response.json();
+        const payload = await response.json();
+        const data = Array.isArray(payload) ? payload : payload?.data || payload?.news || payload?.articles || [];
         if (!Array.isArray(data) || data.length === 0) throw new Error('Empty news API response');
-        setNews(data.slice(0, 20));
-        setFeedMode('live');
-      } catch (e) {
-        setNews(mockData.news);
-        setFeedMode('demo');
+        if (active) {
+          setNews(data.slice(0, 40));
+          setFeedMode('live');
+        }
+      } catch {
+        if (active) {
+          setNews([]);
+          setFeedMode('unavailable');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    loadNews();
+    void loadNews();
+    return () => { active = false; };
   }, []);
 
   const filteredNews = news.filter((item) => {
@@ -132,10 +135,12 @@ export default function News() {
       const q = searchQuery.toLowerCase();
       return item.title.toLowerCase().includes(q) ||
         item.summary.toLowerCase().includes(q) ||
-        item.tags?.some((t) => t.toLowerCase().includes(q));
+        item.tags?.some((tag) => tag.toLowerCase().includes(q));
     }
     return true;
   });
+
+  const sources = useMemo(() => [...new Set(news.map((item) => item.source).filter(Boolean))].slice(0, 8), [news]);
 
   return (
     <Layout>
@@ -146,17 +151,17 @@ export default function News() {
               <Newspaper className="w-8 h-8 text-cyan-400" />
               Notícias do Mercado
             </h1>
-            <p className="text-slate-300 mt-2">Última hora sobre finanças, economia e investimentos, com indicação clara de fonte ao vivo ou modo demo.</p>
+            <p className="text-slate-300 mt-2">Notícias financeiras recebidas do backend F-Insight, com fonte e horário publicados pelo provedor.</p>
           </div>
           <div className={cn('rounded-2xl border p-4 min-w-[260px]', feedMode === 'live' ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-amber-500/20 bg-amber-500/10')}>
             <div className="flex items-center gap-2 mb-1">
               {feedMode === 'live' ? <Wifi className="w-5 h-5 text-emerald-400" /> : <WifiOff className="w-5 h-5 text-amber-400" />}
-              <p className="font-bold text-white">{feedMode === 'live' ? 'Feed ao vivo' : 'Modo demo'}</p>
+              <p className="font-bold text-white">{feedMode === 'live' ? 'Feed disponível' : 'Feed indisponível'}</p>
             </div>
             <p className="text-xs text-slate-300">
-              {feedMode === 'live' ? 'Dados recebidos do backend /api/news.' : 'Backend indisponível ou sem itens. Usando notícias de demonstração.'}
+              {feedMode === 'live' ? `${news.length} itens recebidos da API.` : 'Nenhuma notícia de demonstração é usada como se fosse atual. Tente novamente mais tarde.'}
             </p>
-            {checkedAt && <p className="text-[11px] text-slate-500 mt-2">Checado em {new Date(checkedAt).toLocaleString('pt-BR')}</p>}
+            {checkedAt && <p className="text-[11px] text-slate-500 mt-2">Consultado em {new Date(checkedAt).toLocaleString('pt-BR')}</p>}
           </div>
         </div>
       </div>
@@ -174,9 +179,7 @@ export default function News() {
         </div>
       </div>
 
-      <div className="mb-6">
-        <CategoryFilter selected={category} onSelect={setCategory} />
-      </div>
+      <div className="mb-6"><CategoryFilter selected={category} onSelect={setCategory} /></div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -185,45 +188,23 @@ export default function News() {
       ) : filteredNews.length === 0 ? (
         <div className="text-center py-12 bg-slate-800/40 rounded-xl border border-slate-700/40">
           <Newspaper className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">Nenhuma notícia encontrada</p>
-          <p className="text-sm text-slate-500 mt-2">Tente ajustar os filtros</p>
+          <p className="text-slate-400">{feedMode === 'live' ? 'Nenhuma notícia encontrada para estes filtros.' : 'Notícias temporariamente indisponíveis.'}</p>
+          <p className="text-sm text-slate-500 mt-2">O F-Insight não substitui a falha da fonte por manchetes ou números fictícios.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredNews.map((item, index) => <NewsCard key={item.id} news={item} featured={index === 0} />)}
+          {filteredNews.map((item, index) => <NewsCard key={item.id || `${item.title}-${index}`} news={item} featured={index === 0} />)}
         </div>
       )}
 
-      <div className="mt-8 bg-slate-800/40 rounded-xl p-6 border border-slate-700/40">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-emerald-400" />
-          Resumo do Dia
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-xs text-slate-400 mb-2">Ibovespa</p>
-            <p className="text-xl font-bold text-white">+1.46%</p>
-            <p className="text-xs text-emerald-400 mt-1">↑ Alta</p>
-          </div>
-          <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-xs text-slate-400 mb-2">Dólar</p>
-            <p className="text-xl font-bold text-white">R$ 5.02</p>
-            <p className="text-xs text-red-400 mt-1">↓ Queda</p>
-          </div>
-          <div className="bg-slate-900/50 rounded-lg p-4">
-            <p className="text-xs text-slate-400 mb-2">Bitcoin</p>
-            <p className="text-xl font-bold text-white">+2.73%</p>
-            <p className="text-xs text-emerald-400 mt-1">↑ Forte Alta</p>
-          </div>
+      {sources.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          <span className="text-xs text-slate-500">Fontes presentes no feed:</span>
+          {sources.map((source) => (
+            <span key={source} className="text-xs px-2 py-1 bg-slate-800/50 text-slate-400 rounded">{source}</span>
+          ))}
         </div>
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <span className="text-xs text-slate-500">Fontes:</span>
-        {['Reuters', 'Bloomberg', 'CoinDesk', 'Estadão', 'Valor'].map((source) => (
-          <span key={source} className="text-xs px-2 py-1 bg-slate-800/50 text-slate-400 rounded">{source}</span>
-        ))}
-      </div>
+      )}
     </Layout>
   );
 }
