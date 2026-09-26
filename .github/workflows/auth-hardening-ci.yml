@@ -104,3 +104,15 @@ jobs:
             exit 1
           fi
           grep -q 'Nenhuma notícia de demonstração é usada como se fosse atual' src/pages/News.tsx
+
+      - name: Macro neutrality guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'Macroeconomia & Contexto' src/pages/MacroSignals.tsx
+          grep -q 'observations' src/pages/MacroSignals.tsx
+          grep -q 'não substitui falhas do Banco Central' src/pages/MacroSignals.tsx
+          if grep -nE 'fallbackOverview|Sinais de Alocação|Sinais Ativos|suggestedAction|Baixar PDF Demo|Gerar relatório|demo-signal' src/pages/MacroSignals.tsx; then
+            echo 'Macro UI must not fabricate current values, expose allocation signals, or generate unverified valuation PDFs.'
+            exit 1
+          fi
