@@ -59,17 +59,21 @@ jobs:
           set -euo pipefail
           grep -q 'confirmationRequired' src/context/AuthContext.tsx
           grep -q 'confirmationRequired' src/pages/Login.tsx
-          grep -q 'isLocalBypassUser' src/context/AuthContext.tsx
           grep -q 'localStorage.removeItem(ACCOUNTS_KEY)' src/context/AuthContext.tsx
           grep -q 'if (isSupabaseConfigured && supabase)' src/context/AuthContext.tsx
           grep -q 'Login não criou uma sessão válida' src/context/AuthContext.tsx
           grep -q 'Conta criada. Enviamos um e-mail de confirmação' src/pages/Login.tsx
-          if grep -n 'Cadastro local de cliente continua disponível como contingência' src/context/AuthContext.tsx; then
-            echo 'Configured production auth must not silently fall back to a local account.'
+          grep -q "VITE_ENABLE_DEMO_ACCESS === 'true'" src/context/AuthContext.tsx
+          if grep -n 'REVIEWER_EMAIL\|reviewerUser\|local-google-reviewer\|password.length >= 6' src/context/AuthContext.tsx; then
+            echo 'Production must not contain a local Play reviewer authentication bypass.'
             exit 1
           fi
-          if grep -n 'Tenta o fallback local de cliente abaixo' src/context/AuthContext.tsx; then
-            echo 'Configured production login must fail closed instead of using local credentials.'
+          if grep -n 'isLocalBypassUser' src/context/AuthContext.tsx; then
+            echo 'Configured production auth must not preserve local bypass users.'
+            exit 1
+          fi
+          if grep -n 'Tenta o fallback local de cliente abaixo\|Cadastro local de cliente continua disponível como contingência' src/context/AuthContext.tsx; then
+            echo 'Configured production auth must fail closed instead of using local credentials.'
             exit 1
           fi
 
@@ -81,3 +85,13 @@ jobs:
           grep -q "/api/watchlist/me" src/services/userPreferencesApi.ts
           grep -q "/api/alerts/me" src/services/userPreferencesApi.ts
           grep -q "Authorization" src/services/userPreferencesApi.ts
+
+      - name: Live-data integrity guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'Fallback mock data|publishedAt: new Date\(Date\.now|const (BRAZILIAN_STOCKS|US_STOCKS|CRYPTO_ASSETS|INDICES|NEWS|GRAHAM_PICKS)' src/services/marketData.ts; then
+            echo 'Production market service must not silently substitute fabricated live-looking values.'
+            exit 1
+          fi
+          grep -q 'production returns no picks instead of scores fabricated in the browser' src/services/marketData.ts
