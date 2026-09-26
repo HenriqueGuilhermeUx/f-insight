@@ -77,14 +77,18 @@ jobs:
             exit 1
           fi
 
-      - name: Authenticated owner API compatibility guard
+      - name: Authenticated owner API guard
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "authenticated-owner-only" src/services/userPreferencesApi.ts
           grep -q "/api/watchlist/me" src/services/userPreferencesApi.ts
           grep -q "/api/alerts/me" src/services/userPreferencesApi.ts
           grep -q "Authorization" src/services/userPreferencesApi.ts
+          grep -q 'isSupabaseConfigured && supabase' src/services/userPreferencesApi.ts
+          if grep -n '_health/storage' src/services/userPreferencesApi.ts; then
+            echo 'Production owner API must not downgrade because a capability health probe failed.'
+            exit 1
+          fi
 
       - name: Live-data integrity guard
         shell: bash
@@ -95,3 +99,8 @@ jobs:
             exit 1
           fi
           grep -q 'production returns no picks instead of scores fabricated in the browser' src/services/marketData.ts
+          if grep -nE 'Resumo do Dia|R\$ 5\.02|\+1\.46%|\+2\.73%|Using notícias de demonstração|Usando notícias de demonstração' src/pages/News.tsx; then
+            echo 'News UI must not present hardcoded market summaries or fake current headlines.'
+            exit 1
+          fi
+          grep -q 'Nenhuma notícia de demonstração é usada como se fosse atual' src/pages/News.tsx
