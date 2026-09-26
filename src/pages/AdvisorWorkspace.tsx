@@ -4,36 +4,34 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
-  Download,
   FileText,
   Mail,
   MessageSquare,
   Sparkles,
   Users,
 } from 'lucide-react';
-import API_ENDPOINTS from '@/config/api';
 import { useTenant } from '@/context/TenantContext';
 import { Layout } from '@/components/layout/Layout';
 import { getWorkspaceStats } from '@/services/workspace';
 
 const actions = [
   'Consultar o Radar IA e separar os principais riscos e cenários antes da conversa.',
-  'Gerar um relatório educativo do ativo ou tema que será discutido com o cliente.',
+  'Preparar um material educativo do ativo ou tema que será discutido com o cliente, com fontes e premissas explícitas.',
   'Registrar contexto, dúvidas e próximos passos no fluxo de relacionamento.',
-  'Usar o Futuro IA para conectar mercado, objetivos e capacidade financeira do cliente.',
+  'Usar o Futuro IA para conectar mercado, objetivos e capacidade financeira do cliente sem gerar recomendação automática.',
 ];
 
 const professionalTools = [
   { title: 'Radar IA', text: 'Pergunte sobre ativos, macro, riscos e cenários em linguagem natural.', href: '/ia-financeira', icon: Sparkles },
   { title: 'Insights', text: 'Centralize ferramentas educativas, comparações e leituras para reuniões.', href: '/insights', icon: BarChart3 },
-  { title: 'Relatórios', text: 'Acesse e prepare materiais de apoio para clientes e reuniões.', href: '/admin/relatorios', icon: FileText },
+  { title: 'Relatórios', text: 'Acesse e prepare materiais de apoio com fontes e premissas explícitas.', href: '/admin/relatorios', icon: FileText },
   { title: 'Fábrica de conteúdo', text: 'Transforme temas de mercado em conteúdo educativo para relacionamento.', href: '/admin/fabrica-conteudo', icon: MessageSquare },
   { title: 'Relacionamento', text: 'Organize acompanhamentos, próximas ações e contatos com clientes.', href: '/assessor/acompanhamentos', icon: Users },
   { title: 'Futuro IA', text: 'Veja a experiência de planejamento financeiro que o cliente pode usar.', href: '/meu-futuro', icon: CheckCircle2 },
 ];
 
 export default function AdvisorWorkspace() {
-  const { tenant, buildReportParams } = useTenant();
+  const { tenant } = useTenant();
   const stats = getWorkspaceStats();
   const isDemoWorkspace = stats.tenant?.id === 'tenant_demo';
   const clients = stats.clients.slice(0, 6);
@@ -44,12 +42,6 @@ export default function AdvisorWorkspace() {
     { label: 'Relatórios registrados', value: stats.reports.length, icon: FileText },
     { label: 'Conteúdos no workspace', value: stats.contents.length, icon: MessageSquare },
   ];
-
-  const openReport = (ticker = 'PETR4') => {
-    const params = buildReportParams();
-    const url = `${API_ENDPOINTS.reports.valuation(ticker)}?${params.toString()}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
 
   return (
     <Layout>
@@ -80,13 +72,13 @@ export default function AdvisorWorkspace() {
               <MessageSquare className="h-4 w-4" />
               Mensagem registrada
             </Link>
-            <button
-              onClick={() => openReport('PETR4')}
+            <Link
+              to="/admin/relatorios"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-primary/90"
             >
-              <Download className="h-4 w-4" />
-              Gerar relatório
-            </button>
+              <FileText className="h-4 w-4" />
+              Preparar relatório
+            </Link>
           </div>
         </div>
       </section>
@@ -171,12 +163,8 @@ export default function AdvisorWorkspace() {
                 <div key={client.id} className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-700/40 bg-slate-950/40 p-4 lg:flex-row lg:items-center">
                   <div>
                     <h3 className="font-bold text-white">{client.name}</h3>
-                    <p className="text-sm text-slate-400">
-                      Perfil {client.profile} · educação {client.educationLevel}
-                    </p>
-                    <p className="mt-1 text-xs text-primary">
-                      Status: {client.status === 'ativo' ? 'ativo' : 'convite enviado'}
-                    </p>
+                    <p className="text-sm text-slate-400">Perfil {client.profile} · educação {client.educationLevel}</p>
+                    <p className="mt-1 text-xs text-primary">Status: {client.status === 'ativo' ? 'ativo' : 'convite enviado'}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Link to="/contato" className="inline-flex items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 transition-colors hover:border-primary/40">
@@ -206,13 +194,10 @@ export default function AdvisorWorkspace() {
             Fluxo profissional sugerido
           </h2>
           <p className="mb-5 text-slate-400">Checklist operacional, não uma recomendação de investimento.</p>
-
           <div className="space-y-3">
             {actions.map((action, index) => (
               <div key={action} className="flex items-start gap-3 rounded-2xl border border-slate-700/40 bg-slate-950/50 p-4">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-black text-primary">
-                  {index + 1}
-                </div>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-black text-primary">{index + 1}</div>
                 <p className="text-sm leading-relaxed text-slate-300">{action}</p>
               </div>
             ))}
