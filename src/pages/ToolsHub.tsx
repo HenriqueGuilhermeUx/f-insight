@@ -4,7 +4,6 @@ import {
   BarChart3,
   BookOpen,
   Calculator,
-  Download,
   FileText,
   HelpCircle,
   Lock,
@@ -17,23 +16,20 @@ import {
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useTenant } from '@/context/TenantContext';
-import API_ENDPOINTS from '@/config/api';
 
 const advisorTools = [
   {
     title: 'Valuation Graham',
-    description: 'Estimativa educacional de valor, margem de segurança e relação preço x valor para apoiar relatórios.',
+    description: 'Organize premissas de valor, margem de segurança e relação preço x valor antes de gerar qualquer material.',
     icon: Calculator,
-    action: 'Gerar PDF PETR4',
-    type: 'pdf' as const,
-    ticker: 'PETR4',
+    action: 'Abrir estudo',
+    href: '/graham-valor',
   },
   {
     title: 'Radar de ativos',
-    description: 'Leitura de ativos, múltiplos, preço, tendência e sinais orientativos para priorizar estudos.',
+    description: 'Leitura de ativos, preço, variação e contexto para priorizar estudos — sem indicação automática de compra ou venda.',
     icon: TrendingUp,
     action: 'Abrir Radar',
-    type: 'link' as const,
     href: '/radar',
   },
   {
@@ -41,21 +37,19 @@ const advisorTools = [
     description: 'Selic, IPCA, dólar e indicadores para transformar mercado em pauta de reunião.',
     icon: BarChart3,
     action: 'Abrir Macro',
-    type: 'link' as const,
     href: '/macro',
   },
   {
-    title: 'PDF white-label',
-    description: 'Relatórios com marca, cores e disclaimer do escritório.',
+    title: 'Relatórios white-label',
+    description: 'Materiais com marca, cores, fontes e premissas explícitas do escritório.',
     icon: FileText,
-    action: 'Publicar relatório',
-    type: 'link' as const,
+    action: 'Abrir relatórios',
     href: '/admin/relatorios',
   },
 ];
 
 const clientTools = [
-  { title: 'Entenda valor justo', description: 'Diferença entre preço, valor intrínseco e margem de segurança.', icon: Calculator },
+  { title: 'Entenda valor justo', description: 'Diferença entre preço, valor estimado e margem de segurança.', icon: Calculator },
   { title: 'Checklist de risco', description: 'Perguntas sobre concentração, volatilidade, liquidez, prazo e cenário.', icon: ShieldCheck },
   { title: 'Dividendos sem confusão', description: 'Conceitos de yield, payout, caixa e sustentabilidade.', icon: Percent },
   { title: 'Perguntas para reunião', description: 'Pauta simples para conversar melhor com seu assessor.', icon: HelpCircle },
@@ -63,21 +57,16 @@ const clientTools = [
 
 const rules = [
   'Cliente final recebe versão educativa das ferramentas.',
-  'Admin e assessor acessam a versão operacional para preparar relatórios e pautas.',
-  'O portal segue sem saldo, custódia, extrato ou posição real.',
-  'Todo material mantém linguagem informativa e disclaimer do escritório.',
+  'Admin e assessor acessam a versão operacional para preparar estudos, relatórios e pautas.',
+  'O portal segue sem saldo, custódia, extrato, ordem ou execução de investimento.',
+  'Nenhum PDF de valuation pode usar preço ou valor estimado fictício como fallback.',
+  'Todo material mantém linguagem informativa, premissas, fontes e disclaimer do escritório.',
 ];
 
 export default function ToolsHub() {
   const { user } = useAuth();
-  const { buildReportParams, tenant } = useTenant();
+  const { tenant } = useTenant();
   const isClient = user?.role === 'client';
-
-  const openValuationPdf = (ticker: string) => {
-    const params = buildReportParams();
-    const url = `${API_ENDPOINTS.reports.valuation(ticker)}?${params.toString()}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
 
   return (
     <Layout>
@@ -89,18 +78,18 @@ export default function ToolsHub() {
               Ferramentas F-Insight
             </span>
             <h1 className="text-3xl lg:text-5xl font-black tracking-tight text-white mb-4">
-              {isClient ? 'Ferramentas educativas para conversar melhor.' : 'Cockpit de análise para escritório e assessor.'}
+              {isClient ? 'Ferramentas educativas para entender melhor.' : 'Cockpit de análise para escritório e assessor.'}
             </h1>
             <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
               {isClient
-                ? 'Acesso conceitual para entender melhor mercado, risco e valuation antes da conversa com o assessor.'
-                : `Use ferramentas de análise, conteúdo e PDF white-label para fortalecer o relacionamento de ${tenant.brandName}.`}
+                ? 'Acesso conceitual para entender mercado, risco, valuation e premissas antes de tomar decisões.'
+                : `Use ferramentas de análise, conteúdo e relatórios para fortalecer o relacionamento de ${tenant.brandName}, sempre com fontes e premissas explícitas.`}
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 min-w-[280px]">
             <Lock className="w-6 h-6 text-emerald-400 mb-3" />
             <h3 className="font-bold text-white mb-2">Acesso por perfil</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">Modo completo para escritório e modo educativo para cliente final.</p>
+            <p className="text-sm text-slate-300 leading-relaxed">Modo operacional para escritório e modo educativo para cliente final.</p>
           </div>
         </div>
       </section>
@@ -116,20 +105,10 @@ export default function ToolsHub() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{tool.title}</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-5">{tool.description}</p>
-                {tool.type === 'pdf' ? (
-                  <button
-                    onClick={() => openValuationPdf(tool.ticker)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    {tool.action}
-                  </button>
-                ) : (
-                  <Link to={tool.href} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-                    {tool.action}
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                )}
+                <Link to={tool.href} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                  {tool.action}
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             );
           })}

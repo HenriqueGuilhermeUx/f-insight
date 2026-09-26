@@ -1,5 +1,5 @@
 import type { Asset, WatchlistItem } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'https://f-insight-api.onrender.com').replace(/\/$/, '');
 
@@ -22,45 +22,31 @@ export interface RemoteAlert {
   triggeredAt: string | null;
 }
 
-let ownerApiPromise: Promise<boolean> | null = null;
-
 async function authenticatedHeaders() {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (!supabase) return headers;
-
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+  if (!supabase) throw new Error('Sessão online indisponível.');
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) throw new Error('Faça login novamente para acessar seus dados.');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${data.session.access_token}`,
+  };
 }
 
-async function usesAuthenticatedOwnerApi() {
-  if (!ownerApiPromise) {
-    ownerApiPromise = fetch(`${API_URL}/api/watchlist/_health/storage`)
-      .then(async (response) => {
-        if (!response.ok) return false;
-        const payload = await response.json().catch(() => ({}));
-        return payload?.access === 'authenticated-owner-only';
-      })
-      .catch(() => false);
-  }
-  return ownerApiPromise;
+function usesAuthenticatedOwnerApi() {
+  // Production with Supabase configured must always use owner-bound /me routes.
+  // Never downgrade to arbitrary-user compatibility paths because a health probe failed.
+  return Boolean(isSupabaseConfigured && supabase);
 }
 
 async function api<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const baseHeaders = authenticated ? await authenticatedHeaders() : { 'Content-Type': 'application/json' };
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      ...baseHeaders,
-      ...(init?.headers || {}),
-    },
+    headers: { ...baseHeaders, ...(init?.headers || {}) },
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.error || data?.message || `Erro ${response.status}`);
-  }
+  if (!response.ok) throw new Error(data?.error || data?.message || `Erro ${response.status}`);
   return data as T;
 }
 
@@ -88,7 +74,7 @@ function normalizeWatchlist(items: RemoteWatchlistItem[]): WatchlistItem[] {
 
 export async function fetchWatchlist(userId: string): Promise<WatchlistItem[]> {
   if (!userId) return [];
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   const path = ownerApi ? '/api/watchlist/me' : `/api/watchlist/${userPathId(userId)}`;
   const items = await api<RemoteWatchlistItem[]>(path, undefined, ownerApi);
   return normalizeWatchlist(items);
@@ -96,7 +82,7 @@ export async function fetchWatchlist(userId: string): Promise<WatchlistItem[]> {
 
 export async function addWatchlistAsset(userId: string, asset: WatchlistAssetInput) {
   if (!userId) return null;
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   const path = ownerApi ? '/api/watchlist/me' : `/api/watchlist/${userPathId(userId)}`;
   const result = await api<{ success: boolean; watchlist: RemoteWatchlistItem[] }>(path, {
     method: 'POST',
@@ -107,7 +93,7 @@ export async function addWatchlistAsset(userId: string, asset: WatchlistAssetInp
 
 export async function removeWatchlistAsset(userId: string, ticker: string) {
   if (!userId) return null;
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   const path = ownerApi
     ? `/api/watchlist/me/${encodeURIComponent(ticker)}`
     : `/api/watchlist/${userPathId(userId)}/${encodeURIComponent(ticker)}`;
@@ -117,7 +103,7 @@ export async function removeWatchlistAsset(userId: string, ticker: string) {
 
 export async function fetchAlerts(userId: string): Promise<RemoteAlert[]> {
   if (!userId) return [];
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   const path = ownerApi ? '/api/alerts/me' : `/api/alerts/${userPathId(userId)}`;
   return api<RemoteAlert[]>(path, undefined, ownerApi);
 }
@@ -129,7 +115,7 @@ export async function createAlert(input: {
   value: number;
   enabled?: boolean;
 }) {
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   const body = ownerApi
     ? { ticker: input.ticker, type: input.type, value: input.value, enabled: input.enabled }
     : { ...input, userId: userStorageKey(input.userId) };
@@ -141,7 +127,7 @@ export async function createAlert(input: {
 }
 
 export async function updateAlert(alertId: string, input: { enabled?: boolean; value?: number }) {
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   return api<{ success: boolean; alert: RemoteAlert }>(`/api/alerts/${encodeURIComponent(alertId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -149,6 +135,6 @@ export async function updateAlert(alertId: string, input: { enabled?: boolean; v
 }
 
 export async function deleteAlert(alertId: string) {
-  const ownerApi = await usesAuthenticatedOwnerApi();
+  const ownerApi = usesAuthenticatedOwnerApi();
   return api<{ success: boolean }>(`/api/alerts/${encodeURIComponent(alertId)}`, { method: 'DELETE' }, ownerApi);
 }
