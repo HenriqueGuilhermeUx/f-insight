@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, BarChart3, Brain, ChevronRight, CircleUserRound, Menu, PiggyBank,
-  RefreshCw, ShieldCheck, Sparkles, TrendingDown, TrendingUp
+  ChevronRight, Menu, RefreshCw, TrendingDown, TrendingUp
 } from 'lucide-react';
 import API_ENDPOINTS from '@/config/api';
 import { runLifePlan, runRadarAgent, type LifePlanResponse, type RadarAgentResponse } from '@/services/finsightAgentApi';
@@ -13,6 +12,8 @@ type MacroItem = { id?: string; label: string; value: number; unit: string; sour
 
 const ACCOUNT_KEY='finsight-pwa-account-v1';
 const objectives=['Sair do vermelho','Montar reserva','Acumular patrimônio','Aposentar com renda','Comprar imóvel','Organizar família'];
+const stages=['Falta dinheiro','Não sobra','Sobra e não guardo','Guardo, mas sem plano','Invisto sem objetivo','Tenho patrimônio'];
+const quickRadarPrompts=['Analise BTC nos últimos 6 meses sem recomendar compra.','Compare Selic, dólar e Ibovespa para uma pessoa de longo prazo.','Simule aportes mensais no IBOV de forma educativa.'];
 const fallbackIndicators: Indicator[]=[
   {symbol:'PETR4.SA',lastPrice:38.42,changePercent:.72},{symbol:'VALE3.SA',lastPrice:61.18,changePercent:-.35},
   {symbol:'ITUB4.SA',lastPrice:34.9,changePercent:.41},{symbol:'BBAS3.SA',lastPrice:29.8,changePercent:.22},
@@ -54,41 +55,43 @@ function Today({account,indicators,live,macroLive,agentOnline,setTab}:{account:L
   return <div className="fi-pwa-stack">
     <Card tone="highlight">
       <span className="fi-pwa-kicker">F-INSIGHT</span><h1>Mercado, Futuro IA e Radar IA em um só app.</h1>
-      <p>Conecte objetivos de vida, diagnóstico financeiro e análise educativa de mercado.</p>
+      <p>Agora o F-Insight conecta objetivos de vida, diagnóstico financeiro e análise educativa de mercado.</p>
       <div className="fi-pwa-badges"><span>{live?'Cotações online':'Cotações demo'}</span><span>{macroLive?'Macro online':'Macro fallback'}</span><span>{agentOnline?'Agent online':'Agent fallback'}</span></div>
       {account?<div className="fi-pwa-account-pill">{account.plan==='premium'?'Premium ativo':'Conta grátis ativa'} · {account.name}</div>:<div className="fi-pwa-row"><Button onClick={()=>setTab('conta')}>Criar conta grátis</Button><Button secondary onClick={()=>setTab('conta')}>Entrar</Button></div>}
     </Card>
-    <Card tone="warning"><PiggyBank/><h2>Meu Futuro IA</h2><p>Descubra se seu dinheiro financia seus objetivos ou sabota sua vida. Perfil, vazamentos e plano de ação.</p><Button onClick={()=>setTab('futuro')}>Começar Futuro IA</Button></Card>
-    <Card><Brain/><h2>Radar IA</h2><p>Analise uma dúvida em linguagem natural. Receba roteiro educativo, riscos e simulação — sem recomendação de compra ou venda.</p><Button secondary onClick={()=>setTab('radar')}>Abrir Radar IA</Button></Card>
-    <Card><Activity/><h2>{mood[0]}</h2><p>{mood[1]}</p></Card>
+    <Card tone="warning"><h2>Meu Futuro IA</h2><p>Descubra se seu dinheiro financia seus objetivos ou sabota sua vida. Perfil, a real, vazamentos e plano de 90 dias.</p><Button onClick={()=>setTab('futuro')}>Começar Futuro IA</Button></Card>
+    <Card><h2>Radar IA</h2><p>Digite o que quer analisar em linguagem natural. O agente devolve roteiro educativo, riscos e simulação sem recomendar compra ou venda.</p><Button secondary onClick={()=>setTab('radar')}>Abrir Radar IA</Button></Card>
+    <Card><h2>{mood[0]}</h2><p>{mood[1]}</p></Card>
   </div>
 }
 
 function Future({account,setAccount}:{account:LocalAccount|null;setAccount:(a:LocalAccount|null)=>void}){
-  const [objective,setObjective]=useState(objectives[1]);
-  const [income,setIncome]=useState('8000'),[expenses,setExpenses]=useState('6800'),[savings,setSavings]=useState('300'),[debt,setDebt]=useState('0'),[target,setTarget]=useState('300000'),[years,setYears]=useState('15'),[dependents,setDependents]=useState('0'),[statement,setStatement]=useState('');
+  const [objective,setObjective]=useState(objectives[1]),[stage,setStage]=useState(stages[3]);
+  const [age,setAge]=useState('35'),[income,setIncome]=useState('8000'),[expenses,setExpenses]=useState('6800'),[savings,setSavings]=useState('300'),[debt,setDebt]=useState('0'),[target,setTarget]=useState('300000'),[years,setYears]=useState('15'),[dependents,setDependents]=useState('0'),[statement,setStatement]=useState('');
   const [result,setResult]=useState<LifePlanResponse|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
 
   async function analyze(){
     setLoading(true);setError('');
     try{
-      const data=await runLifePlan({objective,income:numeric(income),expenses:numeric(expenses),savings:numeric(savings),debt:numeric(debt),targetAmount:numeric(target),years:Math.max(1,numeric(years)),dependents:Math.max(0,numeric(dependents)),statementText:statement});
+      const data=await runLifePlan({objective: objective+' · realidade: '+stage,age:Math.max(0,numeric(age)),income:numeric(income),expenses:numeric(expenses),savings:numeric(savings),debt:numeric(debt),targetAmount:numeric(target),years:Math.max(1,numeric(years)),dependents:Math.max(0,numeric(dependents)),statementText:statement});
       setResult(data);
     }catch{setError('O agente online não respondeu agora. Tente novamente em instantes.');}finally{setLoading(false)}
   }
   function premium(){if(!account)return;const next={...account,plan:'premium' as const};localStorage.setItem(ACCOUNT_KEY,JSON.stringify(next));setAccount(next)}
   return <div className="fi-pwa-stack">
-    <Card tone="highlight"><span className="fi-pwa-kicker">MEU FUTURO IA</span><h1>Seu extrato precisa virar consciência.</h1><p>Objetivos, diagnóstico e um plano simples de próximos passos.</p>{account&&account.plan!=='premium'?<Button onClick={premium}>Liberar demo Premium</Button>:null}</Card>
+    <Card tone="highlight"><span className="fi-pwa-kicker">MEU FUTURO IA</span><h1>Seu extrato precisa virar consciência.</h1><p>Agora conectado ao F-Insight Agent quando o backend estiver publicado; se estiver offline, o app usa fallback local.</p>{account&&account.plan!=='premium'?<Button onClick={premium}>Liberar demo Premium</Button>:null}</Card>
     <Card><h2>1. Objetivo principal</h2><Pills value={objective} onChange={setObjective}/></Card>
-    <Card><h2>2. Números básicos</h2><div className="fi-pwa-grid2">
-      <label>Renda mensal<input value={income} onChange={e=>setIncome(e.target.value)} inputMode="decimal"/></label>
+    <Card><h2>2. Realidade de hoje</h2><p>Escolha a opção mais honesta. O app precisa mandar a real, não agradar.</p><div className="fi-pwa-pills">{stages.map(item=><button key={item} className={stage===item?'active':''} onClick={()=>setStage(item)}>{item}</button>)}</div></Card>
+    <Card><h2>3. Números básicos</h2><div className="fi-pwa-grid2">
+      <label>Idade<input value={age} onChange={e=>setAge(e.target.value)} inputMode="numeric"/></label>
+      <label>Dependentes<input value={dependents} onChange={e=>setDependents(e.target.value)} inputMode="numeric"/></label>
+      <label>Renda líquida mensal<input value={income} onChange={e=>setIncome(e.target.value)} inputMode="decimal"/></label>
       <label>Gastos mensais<input value={expenses} onChange={e=>setExpenses(e.target.value)} inputMode="decimal"/></label>
       <label>Guarda/mês<input value={savings} onChange={e=>setSavings(e.target.value)} inputMode="decimal"/></label>
       <label>Dívidas totais<input value={debt} onChange={e=>setDebt(e.target.value)} inputMode="decimal"/></label>
       <label>Meta R$<input value={target} onChange={e=>setTarget(e.target.value)} inputMode="decimal"/></label>
       <label>Prazo anos<input value={years} onChange={e=>setYears(e.target.value)} inputMode="decimal"/></label>
-      <label>Dependentes<input value={dependents} onChange={e=>setDependents(e.target.value)} inputMode="numeric"/></label>
-    </div><label>Extrato/fatura em texto (opcional)<textarea value={statement} onChange={e=>setStatement(e.target.value)} placeholder="Ex.: iFood R$ 82,90..."/></label><Button onClick={analyze} disabled={loading}>{loading?'Analisando...':'Gerar meu diagnóstico'}</Button>{error&&<p className="fi-pwa-error">{error}</p>}</Card>
+    </div></Card><Card><h2>4. Extrato/fatura opcional</h2><p>Cole linhas de extrato ou fatura. Futuramente entra upload PDF/CSV/OFX e Open Finance consentido.</p><label>Extrato/fatura em texto<textarea value={statement} onChange={e=>setStatement(e.target.value)} placeholder="Ex.: iFood R$ 82,90..."/></label><Button onClick={analyze} disabled={loading}>{loading?'Analisando...':'Gerar meu diagnóstico'}</Button>{error&&<p className="fi-pwa-error">{error}</p>}</Card>
     {result&&<><Card tone="highlight"><span className="fi-pwa-kicker">SEU PERFIL ATUAL</span><h1>{result.diagnosis.persona}</h1><p>{result.diagnosis.stage}</p><div className="fi-pwa-score"><strong>{result.diagnosis.freedomScore}</strong><span>Índice de liberdade / 100</span></div><div className="fi-pwa-real"><b>A Real</b><p>{result.diagnosis.realTalk}</p></div></Card>
       <div className="fi-pwa-metrics"><Card><small>Folga mensal</small><strong>{brl(result.diagnosis.monthlyBalance)}</strong></Card><Card><small>Vazamento potencial</small><strong>{brl(result.diagnosis.leakPotential)}</strong></Card></div>
       <Card><h2>Oportunidades detectadas</h2>{result.opportunities.map(x=><p key={x}>• {x}</p>)}</Card>
@@ -101,8 +104,8 @@ function Future({account,setAccount}:{account:LocalAccount|null;setAccount:(a:Lo
 function RadarIA(){
   const [query,setQuery]=useState('Analise PETR4 nos últimos 12 meses sem recomendar compra.'),[symbol,setSymbol]=useState('PETR4.SA'),[result,setResult]=useState<RadarAgentResponse|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
   async function analyze(){setLoading(true);setError('');try{setResult(await runRadarAgent({query,symbol,horizon:'12 meses'}))}catch{setError('O agente online não respondeu agora. Tente novamente em instantes.')}finally{setLoading(false)}}
-  return <div className="fi-pwa-stack"><Card tone="highlight"><span className="fi-pwa-kicker">RADAR IA</span><h1>Pergunte sobre mercado e riscos.</h1><p>Use linguagem natural. O F-Insight organiza pesquisa, riscos e simulações sem executar ordens.</p></Card>
-    <Card><label>Ativo<input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())}/></label><label>Sua pergunta<textarea value={query} onChange={e=>setQuery(e.target.value)}/></label><Button onClick={analyze} disabled={loading}>{loading?'Analisando...':'Analisar'}</Button>{error&&<p className="fi-pwa-error">{error}</p>}</Card>
+  return <div className="fi-pwa-stack"><Card tone="highlight"><span className="fi-pwa-kicker">RADAR IA</span><h1>Digite o que quer analisar em linguagem natural.</h1><p>O agente entrega pesquisa, simulação e riscos. Não recomenda compra, venda nem executa ordens.</p></Card>
+    <Card><h2>Pergunta</h2><label>Sua pergunta<textarea value={query} onChange={e=>setQuery(e.target.value)}/></label><label>Ativo opcional<input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())} placeholder="PETR4.SA, BTC, IBOV..."/></label><div className="fi-pwa-pills">{quickRadarPrompts.map(item=><button key={item} className={query===item?'active':''} onClick={()=>setQuery(item)}>{item}</button>)}</div><Button onClick={analyze} disabled={loading}>{loading?'Analisando...':'Gerar Radar IA'}</Button>{error&&<p className="fi-pwa-error">{error}</p>}</Card>
     {result&&<><Card><span className="fi-pwa-kicker">{result.normalized.symbol}</span><h2>{result.answer.headline}</h2><p>{result.answer.summary}</p><h3>O que observar</h3>{result.answer.whatToCheck.map(x=><p key={x}>✓ {x}</p>)}</Card><Card><h2>Plano da análise</h2>{result.answer.simulationPlan.map((x,i)=><p key={x}>{i+1}. {x}</p>)}</Card><p className="fi-pwa-disclaimer">{result.riskNotice}</p></>}
   </div>
 }
@@ -143,6 +146,6 @@ export default function FInsightMobilePWA(){
   }
   useEffect(()=>{void refresh()},[]);
   const body=useMemo(()=>tab==='hoje'?<Today account={account} indicators={indicators} live={live} macroLive={macroLive} agentOnline={agentOnline} setTab={setTab}/>:tab==='futuro'?<Future account={account} setAccount={setAccount}/>:tab==='radar'?<RadarIA/>:tab==='mercado'?<Market indicators={indicators} macro={macro} live={live} onRefresh={refresh}/>:tab==='conta'?<Account account={account} setAccount={setAccount}/>:<More/>,[tab,account,indicators,live,macroLive,agentOnline,macro]);
-  const tabs:[Tab,string,React.ReactNode][]=[['hoje','Hoje',<Activity/>],['futuro','Futuro IA',<PiggyBank/>],['radar','Radar IA',<Brain/>],['mercado','Mercado',<BarChart3/>],['conta',account?'Conta':'Entrar',<CircleUserRound/>],['mais','Mais',<Menu/>]];
-  return <div className="fi-pwa-shell"><Header account={account} onMenu={()=>setTab('mais')}/>{loading&&tab==='hoje'?<div className="fi-pwa-loading">Atualizando sinais...</div>:null}<main>{body}</main><nav className="fi-pwa-tabbar">{tabs.map(([key,label,icon])=><button key={key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{icon}<span>{label}</span></button>)}</nav></div>
+  const tabs:[Tab,string][]=[['hoje','Hoje'],['futuro','Futuro IA'],['radar','Radar IA'],['mercado','Mercado'],['conta',account?'Conta':'Entrar'],['mais','Mais']];
+  return <div className="fi-pwa-shell"><Header account={account} onMenu={()=>setTab('mais')}/>{loading&&tab==='hoje'?<div className="fi-pwa-loading">Atualizando sinais...</div>:null}<main>{body}</main><nav className="fi-pwa-tabbar">{tabs.map(([key,label])=><button key={key} className={tab===key?'active':''} onClick={()=>setTab(key)}><span>{label}</span></button>)}</nav></div>
 }
