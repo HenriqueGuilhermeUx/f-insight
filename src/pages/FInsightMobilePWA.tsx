@@ -132,7 +132,8 @@ function More(){
 }
 
 export default function FInsightMobilePWA(){
-  const [tab,setTab]=useState<Tab>('hoje'),[account,setAccount]=useState<LocalAccount|null>(()=>loadAccount()),[indicators,setIndicators]=useState<Indicator[]>(fallbackIndicators),[macro,setMacro]=useState<MacroItem[]>(fallbackMacro),[live,setLive]=useState(false),[macroLive,setMacroLive]=useState(false),[agentOnline,setAgentOnline]=useState(false),[loading,setLoading]=useState(true);
+  const initialTab=(()=>{const value=new URLSearchParams(window.location.search).get('tab');return ['hoje','futuro','radar','mercado','conta','mais'].includes(String(value))?value as Tab:'hoje'})();
+  const [tab,setTab]=useState<Tab>(initialTab),[account,setAccount]=useState<LocalAccount|null>(()=>loadAccount()),[indicators,setIndicators]=useState<Indicator[]>(fallbackIndicators),[macro,setMacro]=useState<MacroItem[]>(fallbackMacro),[live,setLive]=useState(false),[macroLive,setMacroLive]=useState(false),[agentOnline,setAgentOnline]=useState(false),[loading,setLoading]=useState(true);
   async function refresh(){
     setLoading(true);
     const [quotes,macroRes,agent]=await Promise.allSettled([fetch(API_ENDPOINTS.live.indicators,{cache:'no-store'}),fetch(API_ENDPOINTS.macro.overview+'?refresh=true',{cache:'no-store'}),fetch(API_ENDPOINTS.baseUrl+'/api/agent/health',{cache:'no-store'})]);
