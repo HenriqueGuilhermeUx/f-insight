@@ -1,50 +1,46 @@
 {
-  "name": "F-Insight Client App",
+  "id": "/app/mobile",
+  "name": "F-Insight",
   "short_name": "F-Insight",
-  "description": "App do cliente final para mensagens do assessor, relatórios liberados, dúvidas rápidas e conteúdos educativos.",
-  "start_url": "/app",
+  "description": "Mercado, Futuro IA, Radar IA e educação financeira em um só app.",
+  "start_url": "/app/mobile",
   "scope": "/",
   "display": "standalone",
   "background_color": "#020617",
-  "theme_color": "#0ea5e9",
+  "theme_color": "#020617",
   "orientation": "portrait-primary",
+  "lang": "pt-BR",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/finsight-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
   "categories": ["finance", "business", "education"],
-  "screenshots": [],
   "shortcuts": [
     {
-      "name": "App do Cliente",
-      "short_name": "Cliente",
-      "description": "Abrir a experiência mobile do cliente",
-      "url": "/app",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "name": "F-Insight",
+      "short_name": "Hoje",
+      "description": "Abrir a experiência principal",
+      "url": "/app/mobile",
+      "icons": [{"src":"/finsight-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     },
     {
-      "name": "Mensagens",
-      "short_name": "Mensagens",
-      "description": "Ver e responder mensagens do assessor",
-      "url": "/contato",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "name": "Futuro IA",
+      "short_name": "Futuro IA",
+      "description": "Abrir o planejamento financeiro educativo",
+      "url": "/app/mobile?tab=futuro",
+      "icons": [{"src":"/finsight-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     },
     {
-      "name": "Relatórios",
-      "short_name": "Relatórios",
-      "description": "Acessar relatórios liberados",
-      "url": "/cliente#relatorios",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "name": "Radar IA",
+      "short_name": "Radar IA",
+      "description": "Abrir análise educativa por IA",
+      "url": "/app/mobile?tab=radar",
+      "icons": [{"src":"/finsight-app-icon.svg","sizes":"any","type":"image/svg+xml"}]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }

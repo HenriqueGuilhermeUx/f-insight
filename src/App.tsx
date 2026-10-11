@@ -47,6 +47,7 @@ import DataOperations from './pages/DataOperations';
 import Billing from './pages/Billing';
 import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
+import FInsightMobilePWA from './pages/FInsightMobilePWA';
 
 function Professional({ children }: { children: React.ReactNode }) {
   return <ProfessionalAccessGuard>{children}</ProfessionalAccessGuard>;
@@ -83,6 +84,7 @@ function App() {
             <Route path="/aviso-educacional" element={<LegalTerms />} />
             <Route path="/onboarding" element={<OfficeOnboarding />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/app/mobile" element={<FInsightMobilePWA />} />
             <Route path="/app" element={<ClientAppLiveGate />} />
             <Route path="/cliente/app" element={<ProtectedRoute roles={['admin', 'advisor', 'client']}><Professional><ClientAppLiveGate /></Professional></ProtectedRoute>} />
             <Route path="/radar" element={<Radar />} />
