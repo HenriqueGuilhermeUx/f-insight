@@ -53,7 +53,7 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'F-Insight';
   const options = {
     body: data.body || 'Nova mensagem ou relatório do seu assessor.',
-    icon: '/favicon.svg',
+    icon: '/favicon.svg", "/finsight-app-icon.svg',
     badge: '/favicon.svg',
     data: data.url || '/app',
   };
