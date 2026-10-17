@@ -6,6 +6,7 @@ import { AuthRole, useAuth } from '@/context/AuthContext';
 import { acceptProfessionalInvite } from '@/services/supabaseWorkspace';
 
 const PENDING_OFFICE_SETUP_KEY = 'finsight-pending-office-setup';
+const DEMO_ACCESS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_ACCESS === 'true';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -20,11 +21,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(confirmed ? 'E-mail confirmado. Agora você já pode entrar no F-Insight.' : '');
   const [messageType, setMessageType] = useState<'error' | 'success'>(confirmed ? 'success' : 'error');
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    fullName: '',
-  });
+  const [form, setForm] = useState({ email: '', password: '', fullName: '' });
 
   const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -227,20 +224,26 @@ export default function Login() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {demoOptions.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <button key={option.role} onClick={() => startDemo(option.role)} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-5 text-left transition-colors hover:border-emerald-400/40">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/10">
-                      <Icon className="h-6 w-6 text-emerald-300" />
-                    </div>
-                    <h3 className="mb-2 font-bold text-white">Demo: {option.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-400">{option.description}</p>
-                  </button>
-                );
-              })}
-            </div>
+            {DEMO_ACCESS_ENABLED ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {demoOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <button key={option.role} onClick={() => startDemo(option.role)} className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-5 text-left transition-colors hover:border-emerald-400/40">
+                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/10">
+                        <Icon className="h-6 w-6 text-emerald-300" />
+                      </div>
+                      <h3 className="mb-2 font-bold text-white">Demo: {option.title}</h3>
+                      <p className="text-sm leading-relaxed text-slate-400">{option.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-700/40 bg-slate-950/40 p-5 text-sm leading-relaxed text-slate-300">
+                Acesso de cliente assessorado, assessor e escritório exige uma conta autenticada. Ambientes de demonstração institucional ficam isolados da produção.
+              </div>
+            )}
           </div>
         </section>
       </div>

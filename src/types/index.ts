@@ -127,10 +127,12 @@ export interface MacroIndicator {
   value: number;
   unit: string;
   date: string;
+  source?: string;
   trend: 'up' | 'down' | 'neutral';
   interpretation: string;
 }
 
+// Legacy type retained for compatibility with older stored content. Current macro UI/API does not generate allocation signals.
 export interface AllocationSignal {
   id: string;
   title: string;
@@ -144,11 +146,24 @@ export interface AllocationSignal {
   generatedAt: string;
 }
 
+export interface MacroObservation {
+  id: string;
+  topic: 'juros' | 'inflacao' | 'cambio' | string;
+  title: string;
+  summary: string;
+  explanation: string;
+  source: string;
+  referenceDate: string;
+}
+
 export interface MacroOverview {
-  updatedAt: string;
+  updatedAt: string | null;
   source: string;
   indicators: MacroIndicator[];
-  signals: AllocationSignal[];
+  observations: MacroObservation[];
+  signals?: AllocationSignal[];
+  degraded?: boolean;
+  failures?: Array<{ series: string; error: string }>;
 }
 
 export interface ScreenerFilter {

@@ -44,8 +44,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = 'f-insight-auth-user';
 const ACCOUNTS_KEY = 'f-insight-local-accounts';
-const REVIEWER_EMAIL = 'notarizex@gmail.com';
 const PASSWORD_ITERATIONS = 120_000;
+const DEMO_ACCESS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_ACCESS === 'true';
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -82,21 +82,6 @@ function demoUser(role: AuthRole): AuthUser {
     isDemo: true,
     plan: role === 'client' ? 'premium' : 'free',
   };
-}
-
-function reviewerUser(): AuthUser {
-  return {
-    id: 'local-google-reviewer',
-    email: REVIEWER_EMAIL,
-    fullName: 'Revisor Google',
-    role: 'client',
-    isDemo: false,
-    plan: 'premium',
-  };
-}
-
-function isLocalBypassUser(user: AuthUser | null | undefined) {
-  return Boolean(user && (user.isDemo || normalizeEmail(user.email) === REVIEWER_EMAIL));
 }
 
 function userFromAccount(account: StoredAccount): AuthUser {
@@ -168,7 +153,7 @@ function readAccounts(): StoredAccount[] {
 
     return saved.filter((account) => {
       const key = normalizeEmail(account.email || '');
-      if (!key || key === REVIEWER_EMAIL || seen.has(key)) return false;
+      if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
@@ -178,10 +163,7 @@ function readAccounts(): StoredAccount[] {
 }
 
 function writeAccounts(accounts: StoredAccount[]) {
-  const sanitized = accounts
-    .filter((account) => normalizeEmail(account.email) !== REVIEWER_EMAIL)
-    .map(({ password: _legacyPassword, ...account }) => account);
-
+  const sanitized = accounts.map(({ password: _legacyPassword, ...account }) => account);
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(sanitized));
 }
 
@@ -233,6 +215,7 @@ function readLocalUser(): AuthUser | null {
     const parsed = JSON.parse(raw) as AuthUser;
 
     if (parsed.isDemo) {
+      if (!DEMO_ACCESS_ENABLED) return null;
       const role = normalizeRole(parsed.role);
       if (parsed.id === `demo-${role}` && parsed.email === `${role}@demo.com`) {
         return demoUser(role);
@@ -262,7 +245,7 @@ async function currentAccessToken() {
 }
 
 async function applyBillingEntitlement(user: AuthUser): Promise<AuthUser> {
-  if (user.isDemo || normalizeEmail(user.email) === REVIEWER_EMAIL) return user;
+  if (user.isDemo) return user;
 
   try {
     const token = await currentAccessToken();
@@ -347,7 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const localUser = readLocalUser();
 
       if (isSupabaseConfigured && supabase) {
-        // Produção autenticada nunca reaproveita contas locais comuns.
+        // Produção autenticada nunca reaproveita contas locais ou sessões demo.
         localStorage.removeItem(ACCOUNTS_KEY);
 
         try {
@@ -357,17 +340,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const sessionUser = data.session?.user;
           if (sessionUser && mounted) {
             await commitUser(mapSessionUser(sessionUser, localUser));
-          } else if (isLocalBypassUser(localUser) && mounted) {
-            await commitUser(localUser as AuthUser);
           } else {
             clearUser();
           }
         } catch {
-          if (isLocalBypassUser(localUser) && mounted) {
-            await commitUser(localUser as AuthUser);
-          } else {
-            clearUser();
-          }
+          clearUser();
         }
       } else if (localUser && mounted) {
         await commitUser(localUser);
@@ -383,13 +360,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void commitUser(mapSessionUser(session.user, readLocalUser()));
         return;
       }
-
-      const localUser = readLocalUser();
-      if (isLocalBypassUser(localUser)) {
-        if (localUser) void commitUser(localUser);
-        return;
-      }
-
       clearUser();
     });
 
@@ -406,6 +376,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       routeForRole,
       enterDemo(role) {
+        if (!DEMO_ACCESS_ENABLED) {
+          throw new Error('Acesso demo está desabilitado neste ambiente.');
+        }
         const nextUser = demoUser(role);
         setUser(nextUser);
         saveLocalUser(nextUser);
@@ -420,13 +393,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async signInWithPassword(email: string, password: string) {
         const normalizedEmail = normalizeEmail(email);
-
-        if (normalizedEmail === REVIEWER_EMAIL && password.length >= 6) {
-          const nextUser = reviewerUser();
-          setUser(nextUser);
-          saveLocalUser(nextUser);
-          return nextUser;
-        }
 
         if (isSupabaseConfigured && supabase) {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -447,9 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return nextUser;
         }
 
-        throw new Error(
-          'Não encontramos essa conta. Crie uma conta grátis ou use o acesso de revisão informado na Play Console.'
-        );
+        throw new Error('Não encontramos essa conta. Crie uma conta grátis ou tente novamente.');
       },
       async signUpWithPassword(input) {
         const email = normalizeEmail(input.email);
