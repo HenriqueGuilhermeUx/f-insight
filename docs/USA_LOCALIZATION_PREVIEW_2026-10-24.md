@@ -35,3 +35,9 @@ US real-time market data, NASDAQ/NYSE licensing, advice/SEC status, instruments,
 ## Operational browser-only demonstration (2026-10-25)
 
 An English hypothetical USD asset allocation worksheet was added to `/us` with editable budget and stocks/bonds/cash weights, simple allocation arithmetic, user-driven review checklist and optional manual copy. No real-time market data, portfolio execution, personalization or financial recommendations. It is not a production financial advisory service.
+
+## Interactive preview inventory
+
+- `/us` includes a hypothetical USD asset-allocation worksheet with Stocks, Bonds and Cash categories.
+- User-entered illustrative figures are computed locally, without live market data, brokerage operations, performance forecasts or personalized advice.
+- A local research checklist and clipboard export demonstrate the future US experience.
