@@ -31,3 +31,7 @@ US real-time market data, NASDAQ/NYSE licensing, advice/SEC status, instruments,
 - [ ] Enable US activation only after region-scoped auth, infrastructure, data residency and entitlements are validated.
 
 **Do not merge, publish, or redirect Brazilian traffic automatically.**
+
+## Operational browser-only demonstration (2026-10-25)
+
+An English hypothetical USD asset allocation worksheet was added to `/us` with editable budget and stocks/bonds/cash weights, simple allocation arithmetic, user-driven review checklist and optional manual copy. No real-time market data, portfolio execution, personalization or financial recommendations. It is not a production financial advisory service.
