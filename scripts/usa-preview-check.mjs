@@ -22,4 +22,14 @@ assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(preview), "US pre
 assert.ok(!/fetch\s*\(/.test(preview), "US preview must not call Brazilian backend APIs");
 assert.ok(css.includes(".avus"), "Styles must use a US-specific namespace");
 assert.ok(!/^\s*(body|html|:root|\*)\s*\{/m.test(css), "US preview styles must not redefine global selectors");
+
+const operational = read("src/pages/USScenario.tsx");
+assert.ok(operational.includes("en-US"), "USScenario.tsx expected capability missing: en-US");
+assert.ok(operational.includes("currency: 'USD'"), "USScenario.tsx expected capability missing: currency: 'USD'");
+assert.ok(operational.includes("educational"), "USScenario.tsx expected capability missing: educational");
+assert.ok(operational.includes("No securities"), "USScenario.tsx expected capability missing: No securities");
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US preview must not call backend APIs");
+assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
+assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(operational), "Demo must not send visitors to Brazilian account activation");
+
 console.log("PASS: f-insight US preview route, language, copy, branding, isolation and CSS namespace");
