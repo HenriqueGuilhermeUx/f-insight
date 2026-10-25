@@ -26,7 +26,7 @@ assert.ok(!/^\s*(body|html|:root|\*)\s*\{/m.test(css), "US preview styles must n
 const operational = read("src/pages/USScenario.tsx");
 assert.ok(operational.includes("en-US"), "USScenario.tsx expected capability missing: en-US");
 assert.ok(operational.includes("currency: 'USD'"), "USScenario.tsx expected capability missing: currency: 'USD'");
-assert.ok(operational.includes("educational"), "USScenario.tsx expected capability missing: educational");
+assert.ok(operational.toLowerCase().includes("educational"), "USScenario.tsx expected educational disclaimer is missing");
 assert.ok(operational.includes("No securities"), "USScenario.tsx expected capability missing: No securities");
 assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US preview must not call backend APIs");
 assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
