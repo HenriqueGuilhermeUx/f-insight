@@ -31,7 +31,8 @@ try {
     const url = request.url();
     if (/f-insight-api\.onrender\.com|\/(api|auth|supabase)\//i.test(url)) apiRequests.push(url);
   });
-  page.on('pageerror', error => { throw error; });
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
   await page.goto(host + '/us', { waitUntil: 'networkidle', timeout: 30000 });
   await page.getByRole('heading', { name: /Sharper financial research/i }).waitFor();
   assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
@@ -51,6 +52,7 @@ try {
   await page.getByRole('button', { name: 'Reset scenario' }).click();
   assert.equal(await page.getByLabel('Stocks allocation (%)').inputValue(), '50');
   assert.equal(apiRequests.length, 0, 'USA preview unexpectedly requested Brazilian API URLs: ' + apiRequests.join(', '));
+  assert.deepEqual(runtimeErrors, [], 'USA preview JavaScript errors');
   console.log('PASS: en-US metadata, mobile interactive allocation, validation, review, reset, zero Brazilian API calls');
 } finally {
   await browser?.close();
