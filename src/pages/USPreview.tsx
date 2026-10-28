@@ -75,7 +75,7 @@ export default function USPreview() {
           <p>Functionality, terms, pricing and availability will be reviewed before a public US launch.</p>
         </section>
       </main>
-      <footer className="avus-footer"><span>F-Insight USA · Alternative Ventures</span><a href="https://alternativeventures.com.br/">About Alternative Ventures ↗</a></footer>
+      <footer className="avus-footer"><span>F-Insight USA · Alternative Ventures</span><span>Preview only · No live accounts or market data</span></footer>
     </div>
   );
 }
