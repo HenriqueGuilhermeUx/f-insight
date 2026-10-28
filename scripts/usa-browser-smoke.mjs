@@ -5,7 +5,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 const host = 'http://127.0.0.1:4178';
-const server = spawn('pnpm', ['exec', 'vite', 'preview', '--host', '127.0.0.1', '--port', '4178', '--strictPort'], {
+const previewArgs = ['exec', 'vite', 'preview', ...(process.env.USA_VITE_CONFIG ? ['--config', process.env.USA_VITE_CONFIG] : []), '--host', '127.0.0.1', '--port', '4178', '--strictPort'];
+const server = spawn('pnpm', previewArgs, {
   env: { ...process.env, VITE_API_URL: 'http://127.0.0.1:65535' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -27,8 +28,10 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const apiRequests = [];
+  const externalRequests = [];
   page.on('request', request => {
     const url = request.url();
+    if (process.env.USA_VITE_CONFIG && !url.startsWith(host + '/')) externalRequests.push(url);
     if (/f-insight-api\.onrender\.com|\/(api|auth|supabase)\//i.test(url)) apiRequests.push(url);
   });
   const runtimeErrors = [];
@@ -52,6 +55,10 @@ try {
   await page.getByRole('button', { name: 'Reset scenario' }).click();
   assert.equal(await page.getByLabel('Stocks allocation (%)').inputValue(), '50');
   assert.equal(apiRequests.length, 0, 'USA preview unexpectedly requested Brazilian API URLs: ' + apiRequests.join(', '));
+  if (process.env.USA_VITE_CONFIG) {
+    assert.deepEqual(externalRequests, [], 'Standalone USA preview made external requests');
+    assert.equal(await page.locator('a[href^="http"]').count(), 0, 'Standalone USA preview must not link to external Brazilian services');
+  }
   assert.deepEqual(runtimeErrors, [], 'USA preview JavaScript errors');
   console.log('PASS: en-US metadata, mobile interactive allocation, validation, review, reset, zero Brazilian API calls');
 } finally {
