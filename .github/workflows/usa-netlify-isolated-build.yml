@@ -10,6 +10,8 @@ on:
       - 'src/pages/USScenario.tsx'
       - 'src/pages/USScenario.css'
       - 'scripts/usa-netlify-isolation-check.mjs'
+      - 'scripts/usa-netlify-site-guard.mjs'
+      - 'deploy/netlify/f-insight/netlify.toml'
       - 'scripts/usa-browser-smoke.mjs'
       - '.github/workflows/usa-netlify-isolated-build.yml'
   workflow_dispatch:
@@ -35,6 +37,18 @@ jobs:
         run: |
           corepack enable
           corepack prepare pnpm@9.15.5 --activate
+      - name: Test dedicated Netlify site guard (allowed and denied)
+        run: |
+          export SITE_ID=9f4a4804-6640-49f5-9769-892e1f283ee3
+          export BRANCH=feature/usa-localized-preview-20261024
+          export CONTEXT=production
+          node scripts/usa-netlify-site-guard.mjs
+          if SITE_ID=wrong node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if BRANCH=main node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if CONTEXT=deploy-preview node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if VITE_API_URL=https://example.invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if SUPABASE_URL=https://example.invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          echo 'PASS: expected site accepted; wrong site, branch, context and provider env rejected'
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
       - name: Build standalone USA-only assets
