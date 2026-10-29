@@ -1,0 +1,11 @@
+# Dedicated F-Insight USA preview only.
+# Netlify project: av-usa-finsight (9f4a4804-6640-49f5-9769-892e1f283ee3)
+# Select Package directory = deploy/netlify/f-insight; leave Base directory unset.
+# Never select this package directory on the Brazilian F-Insight project.
+[build]
+  base = "."
+  command = "node scripts/usa-netlify-site-guard.mjs && corepack enable && corepack prepare pnpm@9.15.5 --activate && pnpm install --no-frozen-lockfile && pnpm exec vite build --config vite.usa.config.ts && node scripts/usa-netlify-isolation-check.mjs"
+  publish = "dist-usa-finsight"
+
+[build.environment]
+  NODE_VERSION = "22"

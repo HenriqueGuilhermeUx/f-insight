@@ -1,0 +1,77 @@
+name: F-Insight USA standalone Netlify artifact
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'usa-preview/**'
+      - 'vite.usa.config.ts'
+      - 'src/pages/USPreview.tsx'
+      - 'src/pages/USPreview.css'
+      - 'src/pages/USScenario.tsx'
+      - 'src/pages/USScenario.css'
+      - 'scripts/usa-netlify-isolation-check.mjs'
+      - 'scripts/usa-netlify-site-guard.mjs'
+      - 'deploy/netlify/f-insight/netlify.toml'
+      - 'scripts/usa-browser-smoke.mjs'
+      - '.github/workflows/usa-netlify-isolated-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact PR HEAD
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm 9
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.5 --activate
+      - name: Test dedicated Netlify site guard (allowed and denied)
+        run: |
+          export SITE_ID=9f4a4804-6640-49f5-9769-892e1f283ee3
+          export BRANCH=feature/usa-localized-preview-20261024
+          export CONTEXT=production
+          export SITE_NAME=av-usa-finsight
+          export NETLIFY=true
+          export COMMIT_REF="$(git rev-parse HEAD)"
+          node scripts/usa-netlify-site-guard.mjs
+          if SITE_ID=wrong node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if BRANCH=main node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if CONTEXT=deploy-preview node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if SITE_NAME=av-usa-finsight-br node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if NETLIFY=false node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if COMMIT_REF=invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if COMMIT_REF=0000000000000000000000000000000000000000 node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if VITE_API_URL=https://example.invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          if SUPABASE_URL=https://example.invalid node scripts/usa-netlify-site-guard.mjs >/dev/null 2>&1; then exit 1; fi
+          echo 'PASS: exact site/branch/context/commit accepted; spoofed site, context, commit and provider env rejected'
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Build standalone USA-only assets
+        run: pnpm exec vite build --config vite.usa.config.ts
+      - name: Reject BR routes, API, PWA and unsafe headers
+        run: node scripts/usa-netlify-isolation-check.mjs
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify US-only scenario in browser
+        env:
+          USA_VITE_CONFIG: vite.usa.config.ts
+        run: node scripts/usa-browser-smoke.mjs
+      - name: Upload review-only package (no deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-usa-netlify-standalone
+          path: dist-usa-finsight/
+          if-no-files-found: error
+          retention-days: 7

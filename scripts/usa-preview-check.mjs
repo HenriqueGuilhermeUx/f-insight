@@ -1,0 +1,35 @@
+/** US-preview static regression contract. No network or environment secrets. */
+import { readFileSync } from "node:fs";
+import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const read = (path) => readFileSync(resolve(projectRoot, path), "utf8");
+const entry = read("src/main.tsx");
+const preview = read("src/pages/USPreview.tsx");
+const css = read("src/pages/USPreview.css");
+
+assert.ok(entry.includes("USPreview") || entry.includes("UsLanding"), "US preview must be mounted explicitly");
+assert.ok(entry.includes("'/us'"), "Expected existing route or US gate: '/us'");
+assert.ok(entry.includes("<App />"), "Expected existing route or US gate: <App />");
+assert.ok(entry.includes("/us"), "US preview must have an isolated route");
+assert.ok(preview.includes("en-US"), "US preview must set document language");
+assert.ok(preview.includes("Alternative Ventures"), "US brand attribution missing");
+assert.match(preview, /preview/i, "US preview must identify non-live scope");
+assert.match(preview, /checkout/i, "US preview must explicitly block unauthorized US commerce");
+assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(preview), "US preview must not link directly to Brazilian signup");
+assert.ok(!/fetch\s*\(/.test(preview), "US preview must not call Brazilian backend APIs");
+assert.ok(css.includes(".avus"), "Styles must use a US-specific namespace");
+assert.ok(!/^\s*(body|html|:root|\*)\s*\{/m.test(css), "US preview styles must not redefine global selectors");
+
+const operational = read("src/pages/USScenario.tsx");
+assert.ok(operational.includes("en-US"), "USScenario.tsx expected capability missing: en-US");
+assert.ok(operational.includes("currency: 'USD'"), "USScenario.tsx expected capability missing: currency: 'USD'");
+assert.ok(operational.toLowerCase().includes("educational"), "USScenario.tsx expected educational disclaimer is missing");
+assert.ok(operational.includes("No securities"), "USScenario.tsx expected capability missing: No securities");
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US preview must not call backend APIs");
+assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
+assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(operational), "Demo must not send visitors to Brazilian account activation");
+
+console.log("PASS: f-insight US preview route, language, copy, branding, isolation and CSS namespace");

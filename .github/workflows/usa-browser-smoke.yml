@@ -1,0 +1,39 @@
+name: F-Insight USA browser QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/pages/USPreview.tsx'
+      - 'src/pages/USScenario.tsx'
+      - 'src/pages/USScenario.css'
+      - 'src/main.tsx'
+      - 'scripts/usa-browser-smoke.mjs'
+      - '.github/workflows/usa-browser-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pnpm 9
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.5 --activate
+      - name: Install locked app dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Build isolated preview assets
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: pnpm exec vite build
+      - name: Install Chromium for browser QA
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Validate US interactive scenario in a real browser
+        env:
+          VITE_API_URL: http://127.0.0.1:65535
+        run: node scripts/usa-browser-smoke.mjs

@@ -1,0 +1,21 @@
+.avus .avfi{max-width:1132px;margin:0 auto 70px;padding:32px 24px}
+.avus .avfi-head{max-width:800px}
+.avus .avfi-head h2{font-size:clamp(29px,3vw,40px);margin:14px 0}
+.avus .avfi-head>p:not(.avus-eyebrow){color:#54677f;font-size:15px;line-height:1.75}
+.avus .avfi-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
+.avus .avfi-card{display:grid;align-content:start;gap:15px;background:white;border:1px solid #dbe6f0;border-radius:18px;padding:24px}
+.avus .avfi-card>label:not(.avfi-check){display:grid;gap:8px;font-size:13px;font-weight:750}
+.avus .avfi-card input[type=number]{padding:11px;font-size:15px;border-radius:9px;border:1px solid #becddd;color:#182a48;background:white}
+.avus .avfi-track{height:7px;border-radius:99px;background:#e6edf4;overflow:hidden}
+.avus .avfi-track span{display:block;height:100%;background:#156a95}
+.avus .avfi-card>button{font:750 13px Inter,system-ui,sans-serif;border:1px solid #156a95;border-radius:10px;padding:12px 15px;color:#fff;background:#156a95;cursor:pointer;justify-self:start}
+.avus .avfi-card>button:disabled{opacity:.5;cursor:not-allowed}
+.avus .avfi-card h3{font-size:18px;margin:5px 0}
+.avus .avfi-result{display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid #e3ebf2;padding:10px 0;font-size:14px}
+.avus .avfi-result strong{white-space:nowrap}
+.avus .avfi-check{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.6}
+.avus .avfi-check input{margin-top:4px}
+.avus .avfi-good{color:#13734b;font-weight:750}
+.avus .avfi-error{color:#b02c45;font-weight:750}
+.avus .avfi-foot{font-size:12px;line-height:1.7;color:#65778d;margin-top:15px}
+@media(max-width:800px){.avus .avfi-grid{grid-template-columns:1fr}}
