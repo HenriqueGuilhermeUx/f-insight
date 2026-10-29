@@ -4,6 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const siteId = '9f4a4804-6640-49f5-9769-892e1f283ee3';
 const branch = 'feature/usa-localized-preview-20261024';
@@ -14,6 +15,15 @@ assert.equal(process.env.BRANCH, branch,
   'Refusing USA build: BRANCH is not the reviewed USA draft branch');
 assert.equal(process.env.CONTEXT, 'production',
   'Refusing USA build: only the dedicated project production context is allowed');
+assert.equal(process.env.SITE_NAME, 'av-usa-finsight',
+  'Refusing USA build: unexpected Netlify project name');
+assert.equal(process.env.NETLIFY, 'true',
+  'Refusing USA build: missing Netlify build context');
+assert.match(process.env.COMMIT_REF || '', /^[a-f0-9]{40}$/i,
+  'Refusing USA build: missing exact source commit');
+const checkedOut = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+assert.equal(checkedOut.toLowerCase(), process.env.COMMIT_REF.toLowerCase(),
+  'Refusing USA build: checked-out commit differs from Netlify COMMIT_REF');
 
 const forbidden = Object.keys(process.env).filter(key =>
   /^(?:VITE_|NEXT_PUBLIC_|PUBLIC_|SUPABASE_|STRIPE_|MERCADOPAGO_|FOXBIT_|WOOVI_|PRIVY_|ALCHEMY_)/.test(key) ||
