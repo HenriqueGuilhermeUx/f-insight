@@ -1,0 +1,56 @@
+name: F-Insight exploratory iOS simulator preflight (unsigned)
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'vite.config.ts'
+      - 'capacitor.config.ts'
+      - '.github/workflows/ios-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@9.15.9 --activate
+      - name: Install existing web dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Build web assets
+        run: pnpm exec tsc -b && pnpm exec vite build
+      - name: Install temporary Capacitor iOS tooling in CI
+        run: pnpm add -D @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/ios@7.4.3
+      - name: Generate candidate iOS project
+        run: pnpm exec cap add ios
+      - name: Compile unsigned candidate for iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/finsight-ios-derived" build 2>&1 | tee ios-build.log
+      - name: Archive diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-ios-preflight-log
+          path: ios-build.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Archive unsigned simulator .app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finsight-ios-candidate
+          path: ${{ runner.temp }}/finsight-ios-derived/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7
