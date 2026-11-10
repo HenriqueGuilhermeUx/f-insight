@@ -33,11 +33,14 @@ jobs:
         run: pnpm add -D @capacitor/core@7.4.3 @capacitor/cli@7.4.3 @capacitor/ios@7.4.3
       - name: Generate candidate iOS project
         run: pnpm exec cap add ios
+      - name: Install iOS CocoaPods
+        working-directory: ios/App
+        run: pod install
       - name: Compile unsigned candidate for iPhone simulator
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/finsight-ios-derived" build 2>&1 | tee ios-build.log
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/finsight-ios-derived" build 2>&1 | tee ios-build.log
       - name: Archive diagnostic log
         if: always()
         uses: actions/upload-artifact@v4
