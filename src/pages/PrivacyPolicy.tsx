@@ -100,7 +100,7 @@ export default function PrivacyPolicy() {
               <h2 className="text-2xl font-bold text-white">Contato</h2>
             </div>
             <p className="text-sm leading-relaxed text-slate-300">
-              Para dúvidas de privacidade, exclusão ou suporte, envie e-mail para <a className="font-bold text-cyan-300 hover:text-cyan-200" href="mailto:contato@f-insight.org">contato@f-insight.org</a>.
+              Para dúvidas de privacidade, exclusão ou suporte, envie e-mail para <a className="font-bold text-cyan-300 hover:text-cyan-200" href="mailto:corporate@alternativeventures.com.br">corporate@alternativeventures.com.br</a>.
             </p>
           </div>
         </aside>
